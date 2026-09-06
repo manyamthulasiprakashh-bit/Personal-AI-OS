@@ -32,6 +32,7 @@ Phase 1, Phase 2B, Phase 3A, Phase 3B, Phase 3D, and Phase 4A are complete. The 
 - `PATCH /api/jobs/{job_id}`
 - `POST /api/jobs/{job_id}/archive`
  - Phase 4B read-only Job Analysis Agent
+ - Phase 5 read-only Stock Quote API with mock and Alpha Vantage providers
 
 ## Development roadmap
 
@@ -195,6 +196,18 @@ curl -X PATCH http://localhost:8000/api/applications/<application-id> \
 ```
 
 Applications are owner-scoped and use the deterministic lifecycle `applied`, `interviewing`, `offer`, `rejected`, or `withdrawn`. One active application is allowed per user and job. This phase has no Application Agent, LLM calls, event history, resume handling, external integrations, or autonomous actions.
+
+### Phase 5 stock quote MVP
+
+Retrieve an informational stock quote without database persistence, an LLM, an agent, or trading actions:
+
+```bash
+curl http://localhost:8000/api/stocks/AAPL
+```
+
+`STOCK_PROVIDER="mock"` is the safe default and returns deterministic test data. Set `STOCK_PROVIDER="alphavantage"` with `ALPHAVANTAGE_API_KEY` to use the official Alpha Vantage `GLOBAL_QUOTE` endpoint. `ALPHAVANTAGE_API_BASE_URL` is configuration-controlled and `STOCK_TIMEOUT_SECONDS` bounds the request. Alpha Vantage's default quote entitlement is end-of-day; the response exposes this as `market_data_status` rather than claiming realtime data.
+
+The endpoint is informational only. Phase 5 has no database tables or migrations, watchlists, historical persistence, LLM analysis, Stock Agent, brokerage integration, trading, recommendations, or portfolio actions.
 ### Phase 4A manual job tracking
 
 Phase 4A stores user-provided job opportunities without external discovery or application automation. The URL is inert reference data, and `description_snapshot` is stored exactly as supplied by the user.

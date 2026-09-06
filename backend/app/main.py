@@ -6,6 +6,7 @@ from app.api.routes.application import router as application_router
 from app.api.routes.job import router as job_router
 from app.api.routes.learning import router as learning_router
 from app.api.routes.routine import router as routine_router
+from app.api.routes.stock import router as stock_router
 from app.config import get_settings
 from app.database.session import init_db
 from app.utils.logging import configure_logging
@@ -33,6 +34,7 @@ app.include_router(job_router)
 app.include_router(application_router)
 app.include_router(learning_router)
 app.include_router(routine_router)
+app.include_router(stock_router)
 
 
 @app.get("/")

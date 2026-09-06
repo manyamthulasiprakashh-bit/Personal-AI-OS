@@ -8,6 +8,12 @@ from app.providers.job import (
 )
 from app.providers.learning import LearningProvider
 from app.providers.mock import MockProvider
+from app.providers.stock import (
+    AlphaVantageStockProvider,
+    MockStockProvider,
+    StockProvider,
+    UnavailableStockProvider,
+)
 
 
 def get_provider() -> BaseProvider:
@@ -26,3 +32,13 @@ def get_job_provider() -> JobProvider:
     if provider_name == "llm":
         return LLMJobProvider(settings)
     return UnavailableJobProvider("invalid job provider configuration")
+
+
+def get_stock_provider() -> StockProvider:
+    settings = get_settings()
+    provider_name = settings.stock_provider.strip().lower()
+    if provider_name == "mock":
+        return MockStockProvider()
+    if provider_name == "alphavantage":
+        return AlphaVantageStockProvider(settings)
+    return UnavailableStockProvider("invalid stock provider configuration")

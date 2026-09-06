@@ -208,6 +208,25 @@ PATCH /api/applications/{application_id}
 An application belongs to one owned job opportunity and cannot be created for an archived job. The client cannot provide `user_id` or change `job_id`. Active duplicate applications for the same user and job are rejected. The application lifecycle is `applied -> interviewing -> offer`, with `rejected` and `withdrawn` as terminal outcomes; service-level validation enforces transitions. Existing applications remain viewable after their job is archived.
 
 Phase 4D has no Application Agent, LLM calls, application event history, resume handling, email, external integrations, browser automation, or autonomous actions.
+
+## Local Phase 5 flow
+
+The Stock Quote MVP is a read-only, non-persistent provider workflow:
+
+```text
+GET /api/stocks/{symbol} -> StockService -> StockProvider -> StockQuote -> API response
+```
+
+Provider selection is configuration-driven:
+
+```text
+STOCK_PROVIDER=mock          -> MockStockProvider
+STOCK_PROVIDER=alphavantage -> AlphaVantageStockProvider
+```
+
+The mock provider is the default and makes no network calls. The Alpha Vantage provider uses the configured official REST base URL, API key, `GLOBAL_QUOTE`, and an explicit timeout. Symbols are normalized and validated before provider invocation. Provider errors are sanitized into `404` or `503` responses; API keys, provider URLs, raw responses, and exception details are never returned.
+
+The response is informational only and includes `market_data_status`. Alpha Vantage's default quote behavior is represented as `end_of_day`; the implementation does not claim realtime data. Phase 5 adds no SQLAlchemy model, repository, migration, database read/write, LLM, Stock Agent, tools, brokerage integration, trading, watchlist, or historical persistence.
 ## Planned architecture
 
 - Orchestrator coordinates agent execution and approval requests.
