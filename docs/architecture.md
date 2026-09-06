@@ -9,7 +9,7 @@
 
 ## Implemented phases
 
-The repository implements Phase 1 responsibilities and Phase 2B of the Daily Routine Agent MVP:
+The repository implements Phase 1, Phase 2B of the Daily Routine Agent MVP, Phase 3A, and Phase 3B:
 
 - FastAPI app shell with health and dashboard endpoints
 - PostgreSQL / SQLAlchemy configuration
@@ -20,6 +20,10 @@ The repository implements Phase 1 responsibilities and Phase 2B of the Daily Rou
 - Deterministic daily progress calculation
 - `BaseProvider` with `MockProvider` as the default provider
 - `POST /api/routine/agent/review` returning progress and a structured review
+- Phase 3A learning models, migration, typed schemas, owner-scoped repository, and deterministic service
+- Configured active development-user boundary through `get_current_user()`
+- Phase 3B `LearningAgent` read-only recommendation workflow
+- `POST /api/learning/agent/recommend` returning deterministic progress and a typed recommendation
 
 ## Local Phase 2B flow
 
@@ -45,6 +49,40 @@ curl -X POST http://localhost:8000/api/routine/agent/review \
 	-H "Content-Type: application/json" \
 	-d '{"date":"2026-09-06"}'
 ```
+
+## Local Phase 3B flow
+
+The Learning Agent uses the configured active development user from `DEVELOPMENT_USER_EMAIL`. The user must exist and be active in PostgreSQL. This is a development identity boundary, not production authentication.
+
+The recommendation workflow is:
+
+```text
+API -> current-user dependency -> LearningAgent -> allowlisted get_learning_progress tool
+-> deterministic LearningService -> LearningRepository -> LearningProgress
+-> LearningProvider -> LearningRecommendation -> API response
+```
+
+The endpoint is:
+
+```text
+POST /api/learning/agent/recommend
+```
+
+It accepts an optional `goal_id`:
+
+```json
+{}
+```
+
+or:
+
+```json
+{"goal_id": "<owned-learning-goal-id>"}
+```
+
+The response contains `progress` and a typed `recommendation` with `summary`, `observations`, `recommendations`, and `next_steps`. Empty learning data returns deterministic zero progress and a stable MockProvider recommendation. Provider failures return `503 Service Unavailable`.
+
+Phase 3B is recommendation-only. It does not add recommendation persistence, real LLM providers, external research, file ingestion, scheduling, notifications, or production authentication.
 
 ## Planned architecture
 

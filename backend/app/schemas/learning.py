@@ -72,3 +72,21 @@ class LearningProgress(BaseModel):
     completed_goals: int
     total_sessions: int
     total_minutes: int
+
+
+class LearningRecommendationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    goal_id: str | None = None
+
+
+class LearningRecommendation(BaseModel):
+    summary: str
+    observations: list[str]
+    recommendations: list[str]
+    next_steps: list[str]
+
+
+class LearningAgentResponse(BaseModel):
+    progress: LearningProgress
+    recommendation: LearningRecommendation

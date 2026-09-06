@@ -4,7 +4,7 @@ Personal AI-OS is a portfolio-grade monorepo for orchestrating personal producti
 
 ## Current status
 
-Phase 1 and Phase 2B are complete. The repository currently contains:
+Phase 1, Phase 2B, Phase 3A, and Phase 3B are complete. The repository currently contains:
 
 - FastAPI backend foundation
 - SQLAlchemy + PostgreSQL configuration
@@ -15,12 +15,15 @@ Phase 1 and Phase 2B are complete. The repository currently contains:
 - RoutineAgent execution flow with deterministic daily progress
 - MockProvider structured daily reviews
 - `POST /api/routine/agent/review`
+- User-owned learning data foundation
+- Learning Agent read-only recommendation workflow
+- `POST /api/learning/agent/recommend`
 
 ## Development roadmap
 
 1. Phase 1: Project foundation
 2. Phase 2: Daily Routine Agent MVP (Phase 2B complete)
-3. Phase 3: Learning Agent MVP
+3. Phase 3: Learning Agent MVP (Phase 3A and Phase 3B complete)
 4. Phase 4: Job Application Agent MVP
 5. Phase 5: Stock Market Agent MVP
 6. Phase 6: Agent Orchestrator
@@ -90,6 +93,18 @@ curl -X POST http://localhost:8000/api/routine/agent/review \
 ```
 
 The response contains `progress` and a `review` with `summary`, `observations`, `recommendations`, and `tomorrow_priorities`.
+
+### Phase 3B smoke test
+
+The Learning Agent recommendation endpoint accepts an optional goal ID. Ownership is resolved from the configured active development user; `user_id`, tool selection, provider selection, and unknown fields are rejected.
+
+```bash
+curl -X POST http://localhost:8000/api/learning/agent/recommend \
+	-H "Content-Type: application/json" \
+	-d '{}'
+```
+
+The response contains deterministic `progress` and a typed `recommendation` with `summary`, `observations`, `recommendations`, and `next_steps`. Phase 3B uses the deterministic `MockProvider`; it does not integrate a real LLM, external research, or scheduling.
 
 ## Commands
 
