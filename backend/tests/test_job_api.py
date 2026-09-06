@@ -228,6 +228,36 @@ def test_cross_user_and_missing_job_analysis_return_404(client, db):
     assert missing.status_code == 404
 
 
+def test_cross_user_job_analysis_does_not_invoke_provider(client, db, monkeypatch):
+    owner = User(email="analysis-order-owner@example.com")
+    other = User(email="analysis-order-other@example.com")
+    db.add_all([owner, other])
+    db.commit()
+    db.refresh(owner)
+    db.refresh(other)
+    job = JobService(db, owner.id).create(JobOpportunityCreate(title="Private", company="Example"))
+    called = False
+
+    class SpyProvider:
+        def generate_job_analysis(self, job_input):
+            nonlocal called
+            called = True
+            raise AssertionError("provider must not run for unauthorized jobs")
+
+    app.dependency_overrides[get_current_user] = with_user(other)
+    app.dependency_overrides[get_job_analysis_agent] = lambda: JobAnalysisAgent(
+        JobService(db, other.id), SpyProvider()
+    )
+    try:
+        response = client.post(f"/api/jobs/{job.id}/agent/analyze", json={})
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_job_analysis_agent, None)
+
+    assert response.status_code == 404
+    assert called is False
+
+
 @pytest.mark.parametrize(
     "payload", [{"user_id": "other"}, {"provider": "other"}, {"tool_name": "other"}]
 )
@@ -281,6 +311,29 @@ def test_job_analysis_provider_failure_returns_503(client, db):
     assert response.status_code == 503
 
 
+def test_job_analysis_provider_failure_does_not_expose_provider_details(client, db):
+    user = User(email="analysis-sanitized-failure@example.com")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    job = JobService(db, user.id).create(JobOpportunityCreate(title="Failure", company="Example"))
+    raw_provider_detail = "provider refusal: secret response payload"
+
+    app.dependency_overrides[get_current_user] = with_user(user)
+    app.dependency_overrides[get_job_analysis_agent] = lambda: _ProviderFailureAgent(
+        raw_provider_detail
+    )
+    try:
+        response = client.post(f"/api/jobs/{job.id}/agent/analyze", json={})
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_job_analysis_agent, None)
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "job analysis is unavailable"}
+    assert raw_provider_detail not in response.text
+
+
 def test_job_analysis_malformed_provider_output_returns_503(client, db):
     user = User(email="analysis-malformed@example.com")
     db.add(user)
@@ -306,7 +359,10 @@ def test_job_analysis_malformed_provider_output_returns_503(client, db):
 
 
 class _ProviderFailureAgent:
+    def __init__(self, detail="provider unavailable"):
+        self.detail = detail
+
     def analyze(self, job_id):
         from app.agents.job.agent import JobProviderError
 
-        raise JobProviderError
+        raise JobProviderError(self.detail)

@@ -153,7 +153,7 @@ curl http://localhost:8000/api/learning/goals/<goal-id>
 
 Goal ownership comes from the configured current development user. A created goal is immediately included in deterministic learning progress and can be used with the session API. Goal updates and deletion are not part of the current MVP.
 
-### Phase 4B job analysis
+### Phase 4C job analysis
 
 Analyze an existing owned job opportunity without changing it:
 
@@ -163,7 +163,20 @@ curl -X POST http://localhost:8000/api/jobs/<job-id>/agent/analyze \
 	-d '{}'
 ```
 
-The analysis uses one allowlisted read-only tool, the deterministic `MockJobProvider`, and the user-provided job fields. It does not fetch the URL, make network requests, persist analysis, modify job status, or provide personalized resume-based fit scoring. No real LLM or `JobAgent` integrations are included yet.
+The analysis is read-only and owner-scoped. `JOB_PROVIDER=mock` is the default and uses the deterministic `MockJobProvider` without network access. Explicit `JOB_PROVIDER=llm` uses the official OpenAI Responses API with strict Pydantic `JobAnalysis` output, a configured timeout, `store=False`, no model tools, and bounded input/output. The provider receives only the saved job fields as untrusted data; it never fetches the job URL, accesses Routine or Learning data, persists analysis, changes job status, or performs autonomous actions.
+
+LLM mode requires these environment variables:
+
+```text
+JOB_PROVIDER="llm"
+OPENAI_API_KEY="..."
+OPENAI_MODEL="..."
+OPENAI_TIMEOUT_SECONDS=30
+OPENAI_MAX_OUTPUT_TOKENS=1000
+JOB_ANALYSIS_MAX_INPUT_CHARS=20000
+```
+
+Provider failures, missing configuration, refusals, incomplete responses, malformed output, and oversized input return the existing safe `503 Service Unavailable` behavior. Tests use fake clients and do not require an API key or network access.
 ### Phase 4A manual job tracking
 
 Phase 4A stores user-provided job opportunities without external discovery or application automation. The URL is inert reference data, and `description_snapshot` is stored exactly as supplied by the user.

@@ -14,6 +14,12 @@ class Settings(BaseSettings):
         default="postgresql+psycopg://personal_ai_os:personal_ai_os@localhost:5432/personal_ai_os"
     )
     development_user_email: str = Field(default="")
+    job_provider: str = Field(default="mock")
+    openai_api_key: str = Field(default="")
+    openai_model: str = Field(default="")
+    openai_timeout_seconds: int = Field(default=30, ge=1, le=300)
+    openai_max_output_tokens: int = Field(default=1000, ge=64, le=4096)
+    job_analysis_max_input_chars: int = Field(default=20000, ge=1000, le=100000)
     secret_key: str = Field(default="change-me-in-production")
     access_token_expire_minutes: int = Field(default=60)
 

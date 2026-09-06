@@ -157,7 +157,7 @@ Users provide the opportunity metadata and optional `description_snapshot`. The 
 
 Phase 4A does not include a JobAgent, job tools, applications, resumes, interviews, external discovery, network calls, notifications, scheduling, or real LLM providers.
 
-## Local Phase 4B flow
+## Local Phase 4C flow
 
 The Job Analysis Agent reads one owner-scoped opportunity and returns transient typed analysis:
 
@@ -173,9 +173,18 @@ The endpoint is:
 POST /api/jobs/{job_id}/agent/analyze
 ```
 
-It accepts `{}` only. The single tool is read-only, and the deterministic `MockJobProvider` receives only the typed job input. Analysis does not access Routine or Learning data, fetch the inert job URL, make external network calls, persist results, or mutate job fields.
+It accepts `{}` only. The single tool is read-only. The default `MockJobProvider` receives only the typed job input and makes no network calls. With explicit `JOB_PROVIDER=llm`, `LLMJobProvider` sends one structured analysis request to the configured OpenAI Responses API. The request uses strict Pydantic output parsing, `store=False`, an explicit timeout, bounded input/output, and no model-controlled tools. Job description and notes are labeled as untrusted data and are never inserted into trusted instructions.
 
-Phase 4B excludes real LLM providers, job discovery, scraping, applications, resumes, interviews, scheduling, notifications, email, employer contact, and autonomous writes.
+Provider selection is configuration-driven:
+
+```text
+JOB_PROVIDER=mock  -> MockJobProvider
+JOB_PROVIDER=llm   -> LLMJobProvider
+```
+
+`OPENAI_API_KEY` is required only for explicit LLM mode. Missing configuration, connection failures, timeouts, authentication/rate-limit/status failures, refusals, incomplete responses, malformed output, and oversized input are converted to the existing provider failure path and exposed as `503 Service Unavailable`. No raw prompts, job text, provider responses, keys, or tokens are logged.
+
+Phase 4C still excludes job discovery, scraping, crawling, URL fetching, applications, resumes, interviews, scheduling, notifications, email, employer contact, model tools, database migrations, persistence of analysis, and autonomous writes. No database schema changes are required.
 ## Planned architecture
 
 - Orchestrator coordinates agent execution and approval requests.
