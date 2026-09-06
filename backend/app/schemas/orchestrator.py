@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.job import JobAnalysisResponse
+from app.schemas.job import JobAnalysisResponse, JobLearningRecommendation
 from app.schemas.learning import LearningAgentResponse
 from app.schemas.stock import StockQuote
 
@@ -34,7 +34,7 @@ class StockQuoteInput(BaseModel):
 
 
 OrchestratorResult = Annotated[
-    LearningAgentResponse | JobAnalysisResponse | StockQuote,
+    LearningAgentResponse | JobAnalysisResponse | JobLearningRecommendation | StockQuote,
     Field(discriminator=None),
 ]
 
@@ -42,5 +42,5 @@ OrchestratorResult = Annotated[
 class OrchestratorResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    capability: Literal["learning.recommend", "job.analyze", "stock.quote"]
+    capability: Literal["learning.recommend", "job.analyze", "job.learning", "stock.quote"]
     result: OrchestratorResult

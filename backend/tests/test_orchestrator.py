@@ -68,8 +68,17 @@ def service(learning_provider=None, job_provider=None, stock_provider=None):
 
 def test_registry_exposes_only_approved_capabilities():
     assert CapabilityRegistry.names() == frozenset(
-        {"learning.recommend", "job.analyze", "stock.quote"}
+        {"learning.recommend", "job.analyze", "job.learning", "stock.quote"}
     )
+
+
+def test_job_learning_registry_entry_is_read_only_and_user_scoped():
+    capability = CapabilityRegistry.get("job.learning")
+
+    assert capability.handler_name == "job_learning"
+    assert capability.access_mode == "read_only"
+    assert capability.risk_level == "low"
+    assert capability.ownership_mode == "current_user"
 
 
 def test_read_only_policy_rejects_write_capability():
@@ -128,6 +137,54 @@ def test_job_requires_explicit_uuid():
         service(stock_provider=MockStockProvider()).classify("Analyze this job")
 
 
+def test_job_learning_requires_explicit_uuid():
+    with pytest.raises(MissingCapabilityArgumentError):
+        service(stock_provider=MockStockProvider()).classify("What should I learn for this job?")
+
+
+def test_job_learning_intent_is_not_generic_learning_or_job_analysis():
+    classified = service(stock_provider=MockStockProvider()).classify(
+        "What should I learn for job 12345678-1234-1234-1234-123456789abc?"
+    )
+
+    assert classified.capability.name == "job.learning"
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "What should I learn for job 12345678-1234-1234-1234-123456789abc?",
+        "What should I study for this position? 12345678-1234-1234-1234-123456789abc",
+        "Analyze this job for learning topics 12345678-1234-1234-1234-123456789abc",
+    ],
+)
+def test_job_learning_extracts_approved_job_identifiers(message):
+    classified = service(stock_provider=MockStockProvider()).classify(message)
+
+    assert classified.capability.name == "job.learning"
+    assert classified.arguments.job_id == "12345678-1234-1234-1234-123456789abc"
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "What should I study for this position? not-a-uuid",
+        "12345678-1234-1234-1234-123456789abc",
+    ],
+)
+def test_job_learning_rejects_unapproved_or_malformed_identifiers(message):
+    with pytest.raises((MissingCapabilityArgumentError, UnknownIntentError)):
+        service(stock_provider=MockStockProvider()).classify(message)
+
+
+def test_bare_uuid_is_not_job_learning():
+    classified = service(stock_provider=MockStockProvider()).classify(
+        "What should I learn for 12345678-1234-1234-1234-123456789abc"
+    )
+
+    assert classified.capability.name == "learning.recommend"
+
+
 def test_supported_stock_route_is_deterministic_and_read_only():
     orchestrator = service(stock_provider=MockStockProvider())
 
@@ -182,6 +239,87 @@ def test_cross_user_job_is_still_not_found(client, db):
         app.dependency_overrides.pop(get_stock_provider, None)
 
     assert response.status_code == 404
+
+
+def test_owned_job_learning_returns_deterministic_recommendation(client, db):
+    user = User(email="job-learning-owner@example.com")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    job = JobService(db, user.id).create(
+        JobOpportunityCreate(
+            title="Backend Engineer",
+            company="Example",
+            description_snapshot="Python experience",
+        )
+    )
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(user.id, user.email)
+    app.dependency_overrides[get_job_provider] = lambda: MockJobProvider()
+    try:
+        response = client.post(
+            "/api/orchestrator/run",
+            json={"message": f"What should I learn for job {job.id}?"},
+        )
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_job_provider, None)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["capability"] == "job.learning"
+    assert response.json()["result"]["job_id"] == job.id
+    assert response.json()["result"]["proficiency_status"] == "unknown"
+
+
+def test_foreign_job_learning_returns_404(client, db):
+    owner = User(email="job-learning-owner-foreign@example.com")
+    other = User(email="job-learning-other-foreign@example.com")
+    db.add_all([owner, other])
+    db.commit()
+    db.refresh(owner)
+    db.refresh(other)
+    job = JobService(db, owner.id).create(JobOpportunityCreate(title="Private", company="Example"))
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(other.id, other.email)
+    app.dependency_overrides[get_job_provider] = lambda: MockJobProvider()
+    try:
+        response = client.post(
+            "/api/orchestrator/run",
+            json={"message": f"What should I study for job {job.id}?"},
+        )
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_job_provider, None)
+
+    assert response.status_code == 404
+
+
+def test_job_learning_provider_failure_returns_sanitized_503(client):
+    user = User(email="job-learning-provider@example.com")
+    db = SessionLocal()
+    try:
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        job = JobService(db, user.id).create(JobOpportunityCreate(title="Role", company="Example"))
+    finally:
+        db.close()
+
+    class FailingProvider:
+        def generate_job_analysis(self, job_input):
+            raise RuntimeError("provider secret details")
+
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(user.id, user.email)
+    app.dependency_overrides[get_job_provider] = lambda: FailingProvider()
+    try:
+        response = client.post(
+            "/api/orchestrator/run",
+            json={"message": f"What should I learn for job {job.id}?"},
+        )
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_job_provider, None)
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "orchestrated capability is unavailable"}
 
 
 def test_cross_user_learning_goal_is_still_not_found(client, db):

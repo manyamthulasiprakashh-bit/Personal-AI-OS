@@ -5,7 +5,7 @@ from typing import Literal, Type
 
 from pydantic import BaseModel
 
-from app.schemas.job import JobAnalysisResponse
+from app.schemas.job import JobAnalysisResponse, JobLearningRecommendation
 from app.schemas.learning import LearningAgentResponse
 from app.schemas.orchestrator import JobAnalyzeInput, LearningRecommendInput, StockQuoteInput
 from app.schemas.stock import StockQuote
@@ -44,6 +44,19 @@ CAPABILITIES: dict[str, CapabilityDefinition] = {
         input_model=JobAnalyzeInput,
         output_model=JobAnalysisResponse,
         handler_name="job_analyze",
+        risk_level="low",
+        access_mode="read_only",
+        ownership_mode="current_user",
+    ),
+    "job.learning": CapabilityDefinition(
+        name="job.learning",
+        description=(
+            "Analyze an owned job and return deterministic learning recommendations "
+            "based on explicitly identified job topics."
+        ),
+        input_model=JobAnalyzeInput,
+        output_model=JobLearningRecommendation,
+        handler_name="job_learning",
         risk_level="low",
         access_mode="read_only",
         ownership_mode="current_user",

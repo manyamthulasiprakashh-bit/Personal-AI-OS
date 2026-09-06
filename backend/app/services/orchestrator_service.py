@@ -25,6 +25,7 @@ from app.schemas.orchestrator import (
 )
 from app.schemas.stock import StockQuote
 from app.services.job_service import JobService
+from app.services.job_learning_workflow import JobLearningWorkflowService
 from app.services.learning_service import LearningService
 from app.services.stock_service import StockService
 
@@ -58,6 +59,12 @@ class ClassifiedRequest:
 class OrchestratorService:
     _job_id_pattern = re.compile(
         r"\bjob(?:\s+id)?\s*[:#]?\s*([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\b", re.I
+    )
+    _position_id_pattern = re.compile(
+        r"\bposition\b\s*[:?,]?\s*([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\b", re.I
+    )
+    _job_learning_id_pattern = re.compile(
+        r"\b(?:job|position)\b.*?([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\b", re.I
     )
     _goal_id_pattern = re.compile(r"\bgoal(?:\s+id)?\s*[:#]?\s*([0-9a-f-]{8,100})\b", re.I)
     _stock_patterns = (
@@ -93,9 +100,11 @@ class OrchestratorService:
             raise AmbiguousIntentError("request must contain one capability")
 
         matches = []
-        if self._is_learning(lowered):
+        if self._is_job_learning(lowered):
+            matches.append("job.learning")
+        elif self._is_learning(lowered):
             matches.append("learning.recommend")
-        if self._is_job(lowered):
+        if not self._is_job_learning(lowered) and self._is_job(lowered):
             matches.append("job.analyze")
         if self._is_stock(lowered):
             matches.append("stock.quote")
@@ -113,8 +122,12 @@ class OrchestratorService:
                     goal_id=goal_match.group(1) if goal_match else None
                 ),
             )
-        if matches[0] == "job.analyze":
+        if matches[0] in {"job.analyze", "job.learning"}:
             job_match = self._job_id_pattern.search(normalized)
+            if matches[0] == "job.learning" and job_match is None:
+                job_match = self._position_id_pattern.search(normalized)
+            if matches[0] == "job.learning" and job_match is None:
+                job_match = self._job_learning_id_pattern.search(normalized)
             if job_match is None:
                 raise MissingCapabilityArgumentError("job id is required")
             return ClassifiedRequest(
@@ -142,6 +155,7 @@ class OrchestratorService:
         handlers = {
             "learning_recommend": self._handle_learning_recommend,
             "job_analyze": self._handle_job_analyze,
+            "job_learning": self._handle_job_learning,
             "stock_quote": self._handle_stock_quote,
         }
         handler = handlers.get(classified.capability.handler_name)
@@ -161,6 +175,15 @@ class OrchestratorService:
         agent = JobAnalysisAgent(JobService(self.db, self.current_user.id), self.job_provider)
         return agent.analyze(payload.job_id)
 
+    def _handle_job_learning(self, arguments: BaseModel):
+        payload = JobAnalyzeInput.model_validate(arguments)
+        workflow = JobLearningWorkflowService(
+            self.db,
+            self.current_user,
+            job_provider=self.job_provider,
+        )
+        return workflow.run(payload.job_id)
+
     def _handle_stock_quote(self, arguments: BaseModel) -> StockQuote:
         payload = StockQuoteInput.model_validate(arguments)
         return StockService(self.stock_provider).get_quote(payload.symbol)
@@ -170,6 +193,12 @@ class OrchestratorService:
         return any(term in message for term in ("study", "learn", "learning")) or (
             "recommend" in message and "job" not in message
         )
+
+    @staticmethod
+    def _is_job_learning(message: str) -> bool:
+        has_job_context = "job" in message or "position" in message
+        has_learning_intent = any(term in message for term in ("learn", "study", "learning"))
+        return has_job_context and has_learning_intent
 
     @staticmethod
     def _is_job(message: str) -> bool:

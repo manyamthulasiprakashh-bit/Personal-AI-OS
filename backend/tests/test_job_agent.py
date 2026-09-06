@@ -2,7 +2,14 @@ import pytest
 
 from app.agents.job.agent import JobAnalysisAgent, JobProviderError
 from app.providers.job import MockJobProvider
-from app.schemas.job import JobAnalysis, JobAnalysisInput, JobAnalysisResponse
+from app.schemas.job import (
+    JobAnalysis,
+    JobAnalysisInput,
+    JobAnalysisResponse,
+    JobLearningContext,
+    JobLearningRecommendation,
+    RequiredTopic,
+)
 
 
 class StubService:
@@ -132,3 +139,195 @@ def test_mock_provider_is_deterministic_and_treats_adversarial_text_as_data():
     assert first == second
     assert first.unknowns == []
     assert first.suggested_next_steps
+
+
+def test_required_topic_accepts_topic_and_source_text():
+    required_topic = RequiredTopic(
+        topic="Docker",
+        source_text="Experience deploying containerized applications using Docker",
+    )
+
+    assert required_topic.topic == "Docker"
+    assert required_topic.source_text.endswith("Docker")
+
+
+def test_required_topic_allows_unknown_topic():
+    required_topic = RequiredTopic(topic=None, source_text="Experience with cloud platforms")
+
+    assert required_topic.topic is None
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"topic": "Docker"},
+        {"topic": "Docker", "source_text": ""},
+        {"topic": "Docker", "source_text": "x" * 2001},
+        {"topic": "", "source_text": "Docker"},
+        {"topic": "x" * 256, "source_text": "Docker"},
+        {"topic": "Docker", "source_text": "Docker", "unexpected": True},
+    ],
+)
+def test_required_topic_rejects_invalid_payloads(payload):
+    with pytest.raises(ValueError):
+        RequiredTopic(**payload)
+
+
+def test_job_learning_context_accepts_empty_topics():
+    context = JobLearningContext(
+        job_id="job-1",
+        required_topics=[],
+        proficiency_status="unknown",
+    )
+
+    assert context.required_topics == []
+
+
+def test_job_learning_context_accepts_multiple_required_topics():
+    context = JobLearningContext(
+        job_id="job-1",
+        required_topics=[
+            RequiredTopic(topic="Docker", source_text="Experience with Docker"),
+            RequiredTopic(topic=None, source_text="Experience with cloud platforms"),
+        ],
+        proficiency_status="unknown",
+    )
+
+    assert len(context.required_topics) == 2
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "job_id": "",
+            "required_topics": [],
+            "proficiency_status": "unknown",
+        },
+        {
+            "job_id": "job-1",
+            "required_topics": [],
+            "proficiency_status": "learning",
+        },
+        {
+            "job_id": "job-1",
+            "required_topics": [{"topic": "Docker", "source_text": "Experience with Docker"}] * 51,
+            "proficiency_status": "unknown",
+        },
+        {
+            "job_id": "job-1",
+            "required_topics": [],
+            "proficiency_status": "unknown",
+            "unexpected": True,
+        },
+    ],
+)
+def test_job_learning_context_rejects_invalid_payloads(payload):
+    with pytest.raises(ValueError):
+        JobLearningContext(**payload)
+
+
+def test_job_learning_recommendation_accepts_valid_payload():
+    recommendation = JobLearningRecommendation(
+        job_id="job-1",
+        required_topics=[RequiredTopic(topic="Docker", source_text="Experience with Docker")],
+        proficiency_status="unknown",
+        recommendations=["Review Docker fundamentals."],
+        next_steps=["Complete one hands-on Docker exercise."],
+    )
+
+    assert recommendation.job_id == "job-1"
+    assert recommendation.proficiency_status == "unknown"
+
+
+def test_job_learning_recommendation_allows_empty_lists():
+    recommendation = JobLearningRecommendation(
+        job_id="job-1",
+        required_topics=[],
+        proficiency_status="unknown",
+        recommendations=[],
+        next_steps=[],
+    )
+
+    assert recommendation.required_topics == []
+    assert recommendation.recommendations == []
+    assert recommendation.next_steps == []
+
+
+def test_job_learning_recommendation_accepts_multiple_topics():
+    recommendation = JobLearningRecommendation(
+        job_id="job-1",
+        required_topics=[
+            RequiredTopic(topic="Python", source_text="Python experience"),
+            RequiredTopic(topic="SQL", source_text="SQL experience"),
+        ],
+        proficiency_status="unknown",
+        recommendations=["Review Python and SQL fundamentals."],
+        next_steps=["Choose one topic to study first."],
+    )
+
+    assert len(recommendation.required_topics) == 2
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "job_id": "",
+            "required_topics": [],
+            "proficiency_status": "unknown",
+            "recommendations": [],
+            "next_steps": [],
+        },
+        {
+            "job_id": "job-1",
+            "required_topics": [],
+            "proficiency_status": "learning",
+            "recommendations": [],
+            "next_steps": [],
+        },
+        {
+            "job_id": "job-1",
+            "required_topics": [{"topic": "Docker", "source_text": "Experience with Docker"}] * 51,
+            "proficiency_status": "unknown",
+            "recommendations": [],
+            "next_steps": [],
+        },
+        {
+            "job_id": "job-1",
+            "required_topics": [],
+            "proficiency_status": "unknown",
+            "recommendations": ["Recommendation"] * 21,
+            "next_steps": [],
+        },
+        {
+            "job_id": "job-1",
+            "required_topics": [],
+            "proficiency_status": "unknown",
+            "recommendations": [],
+            "next_steps": ["Next step"] * 21,
+        },
+        {
+            "job_id": "job-1",
+            "required_topics": [],
+            "proficiency_status": "unknown",
+            "recommendations": [],
+            "next_steps": [],
+            "unexpected": True,
+        },
+    ],
+)
+def test_job_learning_recommendation_rejects_invalid_payloads(payload):
+    with pytest.raises(ValueError):
+        JobLearningRecommendation(**payload)
+
+
+def test_job_learning_recommendation_rejects_invalid_nested_topic():
+    with pytest.raises(ValueError):
+        JobLearningRecommendation(
+            job_id="job-1",
+            required_topics=[{"topic": "Docker"}],
+            proficiency_status="unknown",
+            recommendations=[],
+            next_steps=[],
+        )

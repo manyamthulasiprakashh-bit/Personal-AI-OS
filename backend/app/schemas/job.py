@@ -83,6 +83,31 @@ class JobAnalysis(BaseModel):
     confidence: Literal["low", "medium", "high"]
 
 
+class RequiredTopic(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    topic: str | None = Field(default=None, min_length=1, max_length=255)
+    source_text: str = Field(..., min_length=1, max_length=2000)
+
+
+class JobLearningContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    job_id: str = Field(..., min_length=1, max_length=100)
+    required_topics: list[RequiredTopic] = Field(..., max_length=50)
+    proficiency_status: Literal["unknown"]
+
+
+class JobLearningRecommendation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    job_id: str = Field(..., min_length=1, max_length=100)
+    required_topics: list[RequiredTopic] = Field(..., max_length=50)
+    proficiency_status: Literal["unknown"]
+    recommendations: list[str] = Field(..., max_length=20)
+    next_steps: list[str] = Field(..., max_length=20)
+
+
 class JobAnalysisResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
