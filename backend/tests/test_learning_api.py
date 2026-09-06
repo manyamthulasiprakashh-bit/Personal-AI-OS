@@ -66,6 +66,89 @@ def test_learning_service_dependency_uses_current_user(db):
     assert service.repository.user_id == current_user.id
 
 
+def test_create_learning_goal_returns_typed_response(client, db):
+    user = User(email="goal-owner@example.com")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(user.id, user.email)
+    try:
+        response = client.post(
+            "/api/learning/goals",
+            json={
+                "title": "Python",
+                "description": "Build stronger Python fundamentals",
+                "priority": "high",
+                "target_date": "2026-12-31",
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["title"] == "Python"
+    assert body["user_id"] == user.id
+    assert body["priority"] == "high"
+
+
+def test_learning_goal_list_and_get_are_owner_scoped(client, db):
+    owner = User(email="goal-list-owner@example.com")
+    other = User(email="goal-list-other@example.com")
+    db.add_all([owner, other])
+    db.commit()
+    db.refresh(owner)
+    db.refresh(other)
+    owner_goal = LearningService(db, owner.id).create_goal(LearningGoalCreate(title="Owner goal"))
+    other_goal = LearningService(db, other.id).create_goal(LearningGoalCreate(title="Other goal"))
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(owner.id, owner.email)
+    try:
+        listed = client.get("/api/learning/goals")
+        owned = client.get(f"/api/learning/goals/{owner_goal.id}")
+        cross_user = client.get(f"/api/learning/goals/{other_goal.id}")
+        missing = client.get("/api/learning/goals/00000000-0000-0000-0000-000000000000")
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert listed.status_code == 200
+    assert [goal["id"] for goal in listed.json()] == [owner_goal.id]
+    assert owned.status_code == 200
+    assert owned.json()["title"] == "Owner goal"
+    assert cross_user.status_code == 404
+    assert missing.status_code == 404
+
+
+@pytest.mark.parametrize("field", ["user_id", "unexpected"])
+def test_learning_goal_create_rejects_client_controlled_fields(client, field):
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(
+        "goal-validation-user", "goal-validation@example.com"
+    )
+    try:
+        response = client.post("/api/learning/goals", json={"title": "Goal", field: "bad"})
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == 422
+
+
+def test_created_goal_appears_in_progress(client, db):
+    user = User(email="goal-progress-owner@example.com")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(user.id, user.email)
+    try:
+        create_response = client.post("/api/learning/goals", json={"title": "Progress goal"})
+        progress_response = client.get("/api/learning/progress")
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert create_response.status_code == 201
+    assert progress_response.status_code == 200
+    assert progress_response.json()["total_goals"] == 1
+    assert progress_response.json()["active_goals"] == 1
+
+
 def test_learning_endpoint_returns_typed_progress_and_recommendation(client):
     agent = StubAgent()
     app.dependency_overrides[get_learning_agent] = lambda: agent

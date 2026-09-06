@@ -9,7 +9,7 @@
 
 ## Implemented phases
 
-The repository implements Phase 1, Phase 2B of the Daily Routine Agent MVP, Phase 3A, Phase 3B, and Phase 3C:
+The repository implements Phase 1, Phase 2B of the Daily Routine Agent MVP, Phase 3A, Phase 3B, Phase 3C, and Phase 3D:
 
 - FastAPI app shell with health and dashboard endpoints
 - PostgreSQL / SQLAlchemy configuration
@@ -26,6 +26,8 @@ The repository implements Phase 1, Phase 2B of the Daily Routine Agent MVP, Phas
 - `POST /api/learning/agent/recommend` returning deterministic progress and a typed recommendation
 - Phase 3C owner-scoped learning session creation and history retrieval
 - `POST /api/learning/sessions` and `GET /api/learning/sessions`
+- Phase 3D owner-scoped learning goal creation, listing, and retrieval
+- `POST /api/learning/goals`, `GET /api/learning/goals`, and `GET /api/learning/goals/{goal_id}`
 
 ## Local Phase 2B flow
 
@@ -107,6 +109,26 @@ GET  /api/learning/sessions?goal_id=<owned-goal-id>
 Session creation validates the owned goal, duration, timestamp order, and rejects unknown request fields. Listing returns only the current user's sessions; a goal filter remains owner-scoped. New session minutes are included in deterministic learning progress and therefore in later recommendations.
 
 The Learning Agent remains read-only. Phase 3C does not add agent write tools, scheduling, notifications, external research, resource ingestion, recommendation persistence, or production authentication.
+
+## Local Phase 3D flow
+
+The Learning MVP now begins through the public API:
+
+```text
+API -> current-user dependency -> LearningService(user_id)
+-> owner-scoped LearningRepository -> LearningGoal persistence/query
+-> typed response
+```
+
+The goal endpoints are:
+
+```text
+POST /api/learning/goals
+GET  /api/learning/goals
+GET  /api/learning/goals/{goal_id}
+```
+
+Goal creation rejects unknown fields and client-supplied ownership fields. Listing and retrieval return only goals belonging to the current development user; another user's goal behaves as not found. Created goals appear in `GET /api/learning/progress` and can be used with the existing session endpoints. Goal update and deletion are not implemented.
 
 ## Planned architecture
 

@@ -11,6 +11,9 @@ from app.providers.learning import LearningProvider
 from app.schemas.learning import (
     LearningAgentResponse,
     LearningRecommendationRequest,
+    LearningGoalCreate,
+    LearningGoalResponse,
+    LearningProgress,
     LearningSessionCreate,
     LearningSessionResponse,
 )
@@ -30,6 +33,39 @@ def get_learning_agent(
     provider: LearningProvider = Depends(get_learning_provider),
 ) -> LearningAgent:
     return LearningAgent(service, provider)
+
+
+@router.post(
+    "/learning/goals", response_model=LearningGoalResponse, status_code=status.HTTP_201_CREATED
+)
+def create_learning_goal(
+    payload: LearningGoalCreate,
+    service: LearningService = Depends(get_learning_service),
+) -> LearningGoalResponse:
+    goal = service.create_goal(payload)
+    return LearningGoalResponse.model_validate(goal)
+
+
+@router.get("/learning/goals", response_model=list[LearningGoalResponse])
+def list_learning_goals(
+    service: LearningService = Depends(get_learning_service),
+) -> list[LearningGoalResponse]:
+    return [LearningGoalResponse.model_validate(goal) for goal in service.list_goals()]
+
+
+@router.get("/learning/goals/{goal_id}", response_model=LearningGoalResponse)
+def get_learning_goal(
+    goal_id: str,
+    service: LearningService = Depends(get_learning_service),
+) -> LearningGoalResponse:
+    return LearningGoalResponse.model_validate(service.get_goal(goal_id))
+
+
+@router.get("/learning/progress", response_model=LearningProgress)
+def learning_progress(
+    service: LearningService = Depends(get_learning_service),
+) -> LearningProgress:
+    return service.get_progress()
 
 
 @router.post("/learning/agent/recommend", response_model=LearningAgentResponse)

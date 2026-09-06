@@ -4,7 +4,7 @@ Personal AI-OS is a portfolio-grade monorepo for orchestrating personal producti
 
 ## Current status
 
-Phase 1, Phase 2B, Phase 3A, Phase 3B, and Phase 3C are complete. The repository currently contains:
+Phase 1, Phase 2B, Phase 3A, Phase 3B, and Phase 3D are complete. The repository currently contains:
 
 - FastAPI backend foundation
 - SQLAlchemy + PostgreSQL configuration
@@ -21,12 +21,16 @@ Phase 1, Phase 2B, Phase 3A, Phase 3B, and Phase 3C are complete. The repository
 - Learning session logging and owner-scoped session history
 - `POST /api/learning/sessions`
 - `GET /api/learning/sessions`
+- Owner-scoped Learning Goal creation, listing, and retrieval
+- `POST /api/learning/goals`
+- `GET /api/learning/goals`
+- `GET /api/learning/goals/{goal_id}`
 
 ## Development roadmap
 
 1. Phase 1: Project foundation
 2. Phase 2: Daily Routine Agent MVP (Phase 2B complete)
-3. Phase 3: Learning Agent MVP (Phase 3A, Phase 3B, and Phase 3C complete)
+3. Phase 3: Learning Agent MVP (Phase 3A, Phase 3B, Phase 3C, and Phase 3D complete)
 4. Phase 4: Job Application Agent MVP
 5. Phase 5: Stock Market Agent MVP
 6. Phase 6: Agent Orchestrator
@@ -126,6 +130,21 @@ curl "http://localhost:8000/api/learning/sessions?goal_id=<owned-goal-id>"
 ```
 
 Session ownership is resolved from the configured development user. Cross-user goals and sessions are not accessible, and recorded session minutes update deterministic learning progress. The Learning Agent remains read-only and has no session-writing tool.
+
+### Phase 3D goal API
+
+The Learning MVP can be started through the public API by creating and retrieving owner-scoped goals:
+
+```bash
+curl -X POST http://localhost:8000/api/learning/goals \
+	-H "Content-Type: application/json" \
+	-d '{"title":"Python fundamentals","description":"Build stronger Python skills","priority":"high","target_date":"2026-12-31"}'
+
+curl http://localhost:8000/api/learning/goals
+curl http://localhost:8000/api/learning/goals/<goal-id>
+```
+
+Goal ownership comes from the configured current development user. A created goal is immediately included in deterministic learning progress and can be used with the session API. Goal updates and deletion are not part of the current MVP.
 
 ## Commands
 
