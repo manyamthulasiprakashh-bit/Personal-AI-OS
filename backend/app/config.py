@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     database_url: str = Field(
         default="postgresql+psycopg://personal_ai_os:personal_ai_os@localhost:5432/personal_ai_os"
     )
+    development_user_email: str = Field(default="")
     secret_key: str = Field(default="change-me-in-production")
     access_token_expire_minutes: int = Field(default=60)
 
