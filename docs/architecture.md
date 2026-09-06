@@ -9,7 +9,7 @@
 
 ## Implemented phases
 
-The repository implements Phase 1, Phase 2B of the Daily Routine Agent MVP, Phase 3A, Phase 3B, Phase 3C, and Phase 3D:
+The repository implements Phase 1, Phase 2B of the Daily Routine Agent MVP, Phase 3A, Phase 3B, Phase 3C, Phase 3D, and Phase 4A:
 
 - FastAPI app shell with health and dashboard endpoints
 - PostgreSQL / SQLAlchemy configuration
@@ -28,6 +28,8 @@ The repository implements Phase 1, Phase 2B of the Daily Routine Agent MVP, Phas
 - `POST /api/learning/sessions` and `GET /api/learning/sessions`
 - Phase 3D owner-scoped learning goal creation, listing, and retrieval
 - `POST /api/learning/goals`, `GET /api/learning/goals`, and `GET /api/learning/goals/{goal_id}`
+- Phase 4A owner-scoped manual job opportunity tracking
+- `POST /api/jobs`, `GET /api/jobs`, `GET /api/jobs/{job_id}`, `PATCH /api/jobs/{job_id}`, and `POST /api/jobs/{job_id}/archive`
 
 ## Local Phase 2B flow
 
@@ -129,6 +131,30 @@ GET  /api/learning/goals/{goal_id}
 ```
 
 Goal creation rejects unknown fields and client-supplied ownership fields. Listing and retrieval return only goals belonging to the current development user; another user's goal behaves as not found. Created goals appear in `GET /api/learning/progress` and can be used with the existing session endpoints. Goal update and deletion are not implemented.
+
+## Local Phase 4A flow
+
+Phase 4A is a persistence and API foundation for manually saved job opportunities:
+
+```text
+API -> current-user dependency -> JobService(user_id)
+-> owner-scoped JobRepository -> JobOpportunity persistence/query
+-> typed response
+```
+
+The job endpoints are:
+
+```text
+POST  /api/jobs
+GET   /api/jobs
+GET   /api/jobs/{job_id}
+PATCH /api/jobs/{job_id}
+POST  /api/jobs/{job_id}/archive
+```
+
+Users provide the opportunity metadata and optional `description_snapshot`. The URL is inert reference data; the backend does not fetch, scrape, or crawl it. Records are owner-scoped, and cross-user access behaves as not found. Status transitions support saved to reviewing and explicit archive; archived records are terminal in Phase 4A.
+
+Phase 4A does not include a JobAgent, job tools, applications, resumes, interviews, external discovery, network calls, notifications, scheduling, or real LLM providers.
 
 ## Planned architecture
 

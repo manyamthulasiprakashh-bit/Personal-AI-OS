@@ -4,7 +4,7 @@ Personal AI-OS is a portfolio-grade monorepo for orchestrating personal producti
 
 ## Current status
 
-Phase 1, Phase 2B, Phase 3A, Phase 3B, and Phase 3D are complete. The repository currently contains:
+Phase 1, Phase 2B, Phase 3A, Phase 3B, Phase 3D, and Phase 4A are complete. The repository currently contains:
 
 - FastAPI backend foundation
 - SQLAlchemy + PostgreSQL configuration
@@ -25,13 +25,19 @@ Phase 1, Phase 2B, Phase 3A, Phase 3B, and Phase 3D are complete. The repository
 - `POST /api/learning/goals`
 - `GET /api/learning/goals`
 - `GET /api/learning/goals/{goal_id}`
+- Owner-scoped manual job opportunity tracking
+- `POST /api/jobs`
+- `GET /api/jobs`
+- `GET /api/jobs/{job_id}`
+- `PATCH /api/jobs/{job_id}`
+- `POST /api/jobs/{job_id}/archive`
 
 ## Development roadmap
 
 1. Phase 1: Project foundation
 2. Phase 2: Daily Routine Agent MVP (Phase 2B complete)
 3. Phase 3: Learning Agent MVP (Phase 3A, Phase 3B, Phase 3C, and Phase 3D complete)
-4. Phase 4: Job Application Agent MVP
+4. Phase 4: Job Application Agent MVP (Phase 4A manual job tracking complete)
 5. Phase 5: Stock Market Agent MVP
 6. Phase 6: Agent Orchestrator
 7. Phase 7: Agent-to-agent workflows
@@ -145,6 +151,25 @@ curl http://localhost:8000/api/learning/goals/<goal-id>
 ```
 
 Goal ownership comes from the configured current development user. A created goal is immediately included in deterministic learning progress and can be used with the session API. Goal updates and deletion are not part of the current MVP.
+
+### Phase 4A manual job tracking
+
+Phase 4A stores user-provided job opportunities without external discovery or application automation. The URL is inert reference data, and `description_snapshot` is stored exactly as supplied by the user.
+
+```bash
+curl -X POST http://localhost:8000/api/jobs \
+	-H "Content-Type: application/json" \
+	-d '{"title":"Backend Engineer","company":"Example Inc","url":"https://example.com/jobs/1","description_snapshot":"Paste the job description here","notes":"Review later"}'
+
+curl http://localhost:8000/api/jobs
+curl http://localhost:8000/api/jobs/<job-id>
+curl -X PATCH http://localhost:8000/api/jobs/<job-id> \
+	-H "Content-Type: application/json" \
+	-d '{"notes":"Updated notes","status":"reviewing"}'
+curl -X POST http://localhost:8000/api/jobs/<job-id>/archive
+```
+
+All job operations are owner-scoped through the configured development user. Phase 4A has no JobAgent, applications, resume handling, external network access, or real LLM provider.
 
 ## Commands
 
