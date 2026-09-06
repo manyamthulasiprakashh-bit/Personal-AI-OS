@@ -52,3 +52,39 @@ class JobOpportunityResponse(BaseModel):
     saved_at: datetime
     updated_at: datetime
     closed_at: datetime | None
+
+
+class JobAnalysisRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class JobAnalysisInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    job_id: str
+    title: str
+    company: str
+    location: str | None
+    work_mode: str | None
+    source: str | None
+    description_snapshot: str | None
+    notes: str | None
+    status: JobStatus
+
+
+class JobAnalysis(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str
+    extracted_requirements: list[str]
+    positive_signals: list[str]
+    unknowns: list[str]
+    suggested_next_steps: list[str]
+    confidence: Literal["low", "medium", "high"]
+
+
+class JobAnalysisResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    job: JobOpportunityResponse
+    analysis: JobAnalysis

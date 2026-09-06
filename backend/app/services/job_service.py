@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.models.job import JobOpportunity
 from app.repositories.job import JobRepository
 from app.schemas.job import JobOpportunityCreate, JobOpportunityUpdate
+from app.schemas.job import JobAnalysisInput
 
 
 class JobNotFoundError(LookupError):
@@ -28,6 +29,20 @@ class JobService:
         if job is None:
             raise JobNotFoundError
         return job
+
+    def get_analysis_input(self, job_id: str) -> JobAnalysisInput:
+        job = self.get(job_id)
+        return JobAnalysisInput(
+            job_id=job.id,
+            title=job.title,
+            company=job.company,
+            location=job.location,
+            work_mode=job.work_mode,
+            source=job.source,
+            description_snapshot=job.description_snapshot,
+            notes=job.notes,
+            status=job.status,
+        )
 
     def update(self, job_id: str, payload: JobOpportunityUpdate) -> JobOpportunity:
         job = self.get(job_id)

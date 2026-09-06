@@ -30,6 +30,7 @@ The repository implements Phase 1, Phase 2B of the Daily Routine Agent MVP, Phas
 - `POST /api/learning/goals`, `GET /api/learning/goals`, and `GET /api/learning/goals/{goal_id}`
 - Phase 4A owner-scoped manual job opportunity tracking
 - `POST /api/jobs`, `GET /api/jobs`, `GET /api/jobs/{job_id}`, `PATCH /api/jobs/{job_id}`, and `POST /api/jobs/{job_id}/archive`
+ - Phase 4B read-only Job Analysis Agent over existing owned opportunities
 
 ## Local Phase 2B flow
 
@@ -156,6 +157,25 @@ Users provide the opportunity metadata and optional `description_snapshot`. The 
 
 Phase 4A does not include a JobAgent, job tools, applications, resumes, interviews, external discovery, network calls, notifications, scheduling, or real LLM providers.
 
+## Local Phase 4B flow
+
+The Job Analysis Agent reads one owner-scoped opportunity and returns transient typed analysis:
+
+```text
+API -> current-user dependency -> JobService(user_id) -> JobAnalysisAgent
+-> allowlisted get_job_analysis_input -> JobAnalysisInput
+-> JobProvider -> JobAnalysis -> API response
+```
+
+The endpoint is:
+
+```text
+POST /api/jobs/{job_id}/agent/analyze
+```
+
+It accepts `{}` only. The single tool is read-only, and the deterministic `MockJobProvider` receives only the typed job input. Analysis does not access Routine or Learning data, fetch the inert job URL, make external network calls, persist results, or mutate job fields.
+
+Phase 4B excludes real LLM providers, job discovery, scraping, applications, resumes, interviews, scheduling, notifications, email, employer contact, and autonomous writes.
 ## Planned architecture
 
 - Orchestrator coordinates agent execution and approval requests.

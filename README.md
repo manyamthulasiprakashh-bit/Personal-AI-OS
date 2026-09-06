@@ -31,6 +31,7 @@ Phase 1, Phase 2B, Phase 3A, Phase 3B, Phase 3D, and Phase 4A are complete. The 
 - `GET /api/jobs/{job_id}`
 - `PATCH /api/jobs/{job_id}`
 - `POST /api/jobs/{job_id}/archive`
+ - Phase 4B read-only Job Analysis Agent
 
 ## Development roadmap
 
@@ -152,6 +153,17 @@ curl http://localhost:8000/api/learning/goals/<goal-id>
 
 Goal ownership comes from the configured current development user. A created goal is immediately included in deterministic learning progress and can be used with the session API. Goal updates and deletion are not part of the current MVP.
 
+### Phase 4B job analysis
+
+Analyze an existing owned job opportunity without changing it:
+
+```bash
+curl -X POST http://localhost:8000/api/jobs/<job-id>/agent/analyze \
+	-H "Content-Type: application/json" \
+	-d '{}'
+```
+
+The analysis uses one allowlisted read-only tool, the deterministic `MockJobProvider`, and the user-provided job fields. It does not fetch the URL, make network requests, persist analysis, modify job status, or provide personalized resume-based fit scoring. No real LLM or `JobAgent` integrations are included yet.
 ### Phase 4A manual job tracking
 
 Phase 4A stores user-provided job opportunities without external discovery or application automation. The URL is inert reference data, and `description_snapshot` is stored exactly as supplied by the user.

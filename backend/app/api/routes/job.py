@@ -4,8 +4,17 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import CurrentUser, get_current_user
+from app.agents.job.agent import JobAnalysisAgent, JobProviderError
 from app.database.session import get_db
-from app.schemas.job import JobOpportunityCreate, JobOpportunityResponse, JobOpportunityUpdate
+from app.providers.factory import get_job_provider
+from app.providers.job import JobProvider
+from app.schemas.job import (
+    JobAnalysisRequest,
+    JobAnalysisResponse,
+    JobOpportunityCreate,
+    JobOpportunityResponse,
+    JobOpportunityUpdate,
+)
 from app.services.job_service import JobNotFoundError, JobService, JobValidationError
 
 router = APIRouter(prefix="/api", tags=["jobs"])
@@ -15,6 +24,13 @@ def get_job_service(
     db: Session = Depends(get_db), current_user: CurrentUser = Depends(get_current_user)
 ) -> JobService:
     return JobService(db, current_user.id)
+
+
+def get_job_analysis_agent(
+    service: JobService = Depends(get_job_service),
+    provider: JobProvider = Depends(get_job_provider),
+) -> JobAnalysisAgent:
+    return JobAnalysisAgent(service, provider)
 
 
 def _not_found(error: JobNotFoundError) -> HTTPException:
@@ -67,3 +83,20 @@ def archive_job(
         return JobOpportunityResponse.model_validate(service.archive(job_id))
     except JobNotFoundError as error:
         raise _not_found(error) from error
+
+
+@router.post("/jobs/{job_id}/agent/analyze", response_model=JobAnalysisResponse)
+def analyze_job(
+    job_id: str,
+    payload: JobAnalysisRequest,
+    agent: JobAnalysisAgent = Depends(get_job_analysis_agent),
+) -> JobAnalysisResponse:
+    try:
+        return agent.analyze(job_id)
+    except JobNotFoundError as error:
+        raise _not_found(error) from error
+    except JobProviderError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="job analysis is unavailable",
+        ) from error

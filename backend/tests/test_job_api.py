@@ -1,7 +1,9 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.agents.job.agent import JobAnalysisAgent
 from app.api.dependencies import CurrentUser, get_current_user
+from app.api.routes.job import get_job_analysis_agent
 from app.database.session import SessionLocal
 from app.main import app
 from app.models.user import User
@@ -177,3 +179,134 @@ def test_job_url_is_inert_and_no_network_call_is_made(client, db, monkeypatch):
 
     assert response.status_code == 201
     assert response.json()["description_snapshot"] == "User-provided snapshot"
+
+
+def test_owned_job_analysis_returns_typed_response_without_mutation(client, db):
+    user = User(email="analysis-owner@example.com")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    job = JobService(db, user.id).create(
+        JobOpportunityCreate(
+            title="Analyst",
+            company="Example",
+            description_snapshot="Analyze this role",
+        )
+    )
+    original = (job.status, job.saved_at, job.updated_at, job.closed_at)
+    app.dependency_overrides[get_current_user] = with_user(user)
+    try:
+        response = client.post(f"/api/jobs/{job.id}/agent/analyze", json={})
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    db.refresh(job)
+    assert response.status_code == 200, response.text
+    assert response.json()["job"]["id"] == job.id
+    assert response.json()["analysis"]["summary"]
+    assert (job.status, job.saved_at, job.updated_at, job.closed_at) == original
+
+
+def test_cross_user_and_missing_job_analysis_return_404(client, db):
+    owner = User(email="analysis-owner-a@example.com")
+    other = User(email="analysis-owner-b@example.com")
+    db.add_all([owner, other])
+    db.commit()
+    db.refresh(owner)
+    db.refresh(other)
+    job = JobService(db, owner.id).create(JobOpportunityCreate(title="Private", company="Example"))
+    app.dependency_overrides[get_current_user] = with_user(other)
+    try:
+        cross_user = client.post(f"/api/jobs/{job.id}/agent/analyze", json={})
+        missing = client.post(
+            "/api/jobs/00000000-0000-0000-0000-000000000000/agent/analyze", json={}
+        )
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert cross_user.status_code == 404
+    assert missing.status_code == 404
+
+
+@pytest.mark.parametrize(
+    "payload", [{"user_id": "other"}, {"provider": "other"}, {"tool_name": "other"}]
+)
+def test_job_analysis_rejects_client_controlled_fields(client, payload):
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(
+        "analysis-validation-user", "analysis-validation@example.com"
+    )
+    try:
+        response = client.post(
+            "/api/jobs/00000000-0000-0000-0000-000000000000/agent/analyze", json=payload
+        )
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == 422
+
+
+def test_archived_job_can_be_analyzed(client, db):
+    user = User(email="analysis-archived@example.com")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    service = JobService(db, user.id)
+    job = service.create(JobOpportunityCreate(title="Archived", company="Example"))
+    service.archive(job.id)
+    app.dependency_overrides[get_current_user] = with_user(user)
+    try:
+        response = client.post(f"/api/jobs/{job.id}/agent/analyze", json={})
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == 200
+    assert response.json()["job"]["status"] == "archived"
+
+
+def test_job_analysis_provider_failure_returns_503(client, db):
+    user = User(email="analysis-failure@example.com")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    job = JobService(db, user.id).create(JobOpportunityCreate(title="Failure", company="Example"))
+
+    app.dependency_overrides[get_current_user] = with_user(user)
+    app.dependency_overrides[get_job_analysis_agent] = lambda: _ProviderFailureAgent()
+    try:
+        response = client.post(f"/api/jobs/{job.id}/agent/analyze", json={})
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_job_analysis_agent, None)
+
+    assert response.status_code == 503
+
+
+def test_job_analysis_malformed_provider_output_returns_503(client, db):
+    user = User(email="analysis-malformed@example.com")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    job = JobService(db, user.id).create(JobOpportunityCreate(title="Malformed", company="Example"))
+
+    class MalformedProvider:
+        def generate_job_analysis(self, job_input):
+            return {"summary": "missing required fields"}
+
+    app.dependency_overrides[get_current_user] = with_user(user)
+    app.dependency_overrides[get_job_analysis_agent] = lambda: JobAnalysisAgent(
+        JobService(db, user.id), MalformedProvider()
+    )
+    try:
+        response = client.post(f"/api/jobs/{job.id}/agent/analyze", json={})
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_job_analysis_agent, None)
+
+    assert response.status_code == 503
+
+
+class _ProviderFailureAgent:
+    def analyze(self, job_id):
+        from app.agents.job.agent import JobProviderError
+
+        raise JobProviderError
