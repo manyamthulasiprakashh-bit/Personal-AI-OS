@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+if [ ! -f .env ]; then
+  cp .env.example .env
+fi
+
+cd backend
+python -m pip install -r requirements.txt
+
+cd ../frontend
+npm install
