@@ -41,6 +41,16 @@ class LearningRepository:
         self.db.refresh(session)
         return session
 
+    def list_sessions(self, goal_id: str | None = None) -> list[LearningSession]:
+        query = (
+            select(LearningSession)
+            .where(LearningSession.user_id == self.user_id)
+            .order_by(LearningSession.started_at.desc())
+        )
+        if goal_id is not None:
+            query = query.where(LearningSession.goal_id == goal_id)
+        return list(self.db.execute(query).scalars().all())
+
     def create_resource(self, payload: dict[str, Any]) -> LearningResource:
         resource = LearningResource(user_id=self.user_id, **payload)
         self.db.add(resource)

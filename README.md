@@ -4,7 +4,7 @@ Personal AI-OS is a portfolio-grade monorepo for orchestrating personal producti
 
 ## Current status
 
-Phase 1, Phase 2B, Phase 3A, and Phase 3B are complete. The repository currently contains:
+Phase 1, Phase 2B, Phase 3A, Phase 3B, and Phase 3C are complete. The repository currently contains:
 
 - FastAPI backend foundation
 - SQLAlchemy + PostgreSQL configuration
@@ -18,12 +18,15 @@ Phase 1, Phase 2B, Phase 3A, and Phase 3B are complete. The repository currently
 - User-owned learning data foundation
 - Learning Agent read-only recommendation workflow
 - `POST /api/learning/agent/recommend`
+- Learning session logging and owner-scoped session history
+- `POST /api/learning/sessions`
+- `GET /api/learning/sessions`
 
 ## Development roadmap
 
 1. Phase 1: Project foundation
 2. Phase 2: Daily Routine Agent MVP (Phase 2B complete)
-3. Phase 3: Learning Agent MVP (Phase 3A and Phase 3B complete)
+3. Phase 3: Learning Agent MVP (Phase 3A, Phase 3B, and Phase 3C complete)
 4. Phase 4: Job Application Agent MVP
 5. Phase 5: Stock Market Agent MVP
 6. Phase 6: Agent Orchestrator
@@ -105,6 +108,24 @@ curl -X POST http://localhost:8000/api/learning/agent/recommend \
 ```
 
 The response contains deterministic `progress` and a typed `recommendation` with `summary`, `observations`, `recommendations`, and `next_steps`. Phase 3B uses the deterministic `MockProvider`; it does not integrate a real LLM, external research, or scheduling.
+
+### Phase 3C session history
+
+Create a session for an owned learning goal:
+
+```bash
+curl -X POST http://localhost:8000/api/learning/sessions \
+	-H "Content-Type: application/json" \
+	-d '{"goal_id":"<owned-goal-id>","started_at":"2026-09-06T09:00:00Z","ended_at":"2026-09-06T09:45:00Z","duration_minutes":45,"notes":"Reviewed SQL joins"}'
+```
+
+List the current user's sessions, optionally filtered by an owned goal:
+
+```bash
+curl "http://localhost:8000/api/learning/sessions?goal_id=<owned-goal-id>"
+```
+
+Session ownership is resolved from the configured development user. Cross-user goals and sessions are not accessible, and recorded session minutes update deterministic learning progress. The Learning Agent remains read-only and has no session-writing tool.
 
 ## Commands
 

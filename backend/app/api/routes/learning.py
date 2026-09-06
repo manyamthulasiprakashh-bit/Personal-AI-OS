@@ -8,7 +8,12 @@ from app.api.dependencies import CurrentUser, get_current_user
 from app.database.session import get_db
 from app.providers.factory import get_learning_provider
 from app.providers.learning import LearningProvider
-from app.schemas.learning import LearningAgentResponse, LearningRecommendationRequest
+from app.schemas.learning import (
+    LearningAgentResponse,
+    LearningRecommendationRequest,
+    LearningSessionCreate,
+    LearningSessionResponse,
+)
 from app.services.learning_service import LearningService
 
 router = APIRouter(prefix="/api", tags=["learning"])
@@ -39,3 +44,25 @@ def recommend_learning(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="learning recommendation is unavailable",
         ) from error
+
+
+@router.post(
+    "/learning/sessions",
+    response_model=LearningSessionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_learning_session(
+    payload: LearningSessionCreate,
+    service: LearningService = Depends(get_learning_service),
+) -> LearningSessionResponse:
+    session = service.create_session(payload)
+    return LearningSessionResponse.model_validate(session)
+
+
+@router.get("/learning/sessions", response_model=list[LearningSessionResponse])
+def list_learning_sessions(
+    goal_id: str | None = None,
+    service: LearningService = Depends(get_learning_service),
+) -> list[LearningSessionResponse]:
+    sessions = service.list_sessions(goal_id)
+    return [LearningSessionResponse.model_validate(session) for session in sessions]

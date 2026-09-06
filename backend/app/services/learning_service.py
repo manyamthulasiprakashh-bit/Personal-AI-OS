@@ -10,6 +10,7 @@ from app.schemas.learning import (
     LearningResourceCreate,
     LearningSessionCreate,
 )
+from app.models.learning import LearningSession
 
 
 class LearningService:
@@ -30,9 +31,14 @@ class LearningService:
             )
         return goal
 
-    def create_session(self, payload: LearningSessionCreate):
+    def create_session(self, payload: LearningSessionCreate) -> LearningSession:
         self.get_goal(payload.goal_id)
         return self.repository.create_session(payload.model_dump())
+
+    def list_sessions(self, goal_id: str | None = None) -> list[LearningSession]:
+        if goal_id is not None:
+            self.get_goal(goal_id)
+        return self.repository.list_sessions(goal_id)
 
     def create_resource(self, payload: LearningResourceCreate):
         if payload.goal_id is not None:

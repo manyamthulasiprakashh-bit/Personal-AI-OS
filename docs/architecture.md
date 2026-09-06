@@ -9,7 +9,7 @@
 
 ## Implemented phases
 
-The repository implements Phase 1, Phase 2B of the Daily Routine Agent MVP, Phase 3A, and Phase 3B:
+The repository implements Phase 1, Phase 2B of the Daily Routine Agent MVP, Phase 3A, Phase 3B, and Phase 3C:
 
 - FastAPI app shell with health and dashboard endpoints
 - PostgreSQL / SQLAlchemy configuration
@@ -24,6 +24,8 @@ The repository implements Phase 1, Phase 2B of the Daily Routine Agent MVP, Phas
 - Configured active development-user boundary through `get_current_user()`
 - Phase 3B `LearningAgent` read-only recommendation workflow
 - `POST /api/learning/agent/recommend` returning deterministic progress and a typed recommendation
+- Phase 3C owner-scoped learning session creation and history retrieval
+- `POST /api/learning/sessions` and `GET /api/learning/sessions`
 
 ## Local Phase 2B flow
 
@@ -83,6 +85,28 @@ or:
 The response contains `progress` and a typed `recommendation` with `summary`, `observations`, `recommendations`, and `next_steps`. Empty learning data returns deterministic zero progress and a stable MockProvider recommendation. Provider failures return `503 Service Unavailable`.
 
 Phase 3B is recommendation-only. It does not add recommendation persistence, real LLM providers, external research, file ingestion, scheduling, notifications, or production authentication.
+
+## Local Phase 3C flow
+
+Learning sessions use the configured current development user and existing Phase 3A ownership boundary:
+
+```text
+API -> current-user dependency -> LearningService(user_id)
+-> owner-scoped LearningRepository -> LearningSession persistence/query
+-> typed response
+```
+
+The session endpoints are:
+
+```text
+POST /api/learning/sessions
+GET  /api/learning/sessions
+GET  /api/learning/sessions?goal_id=<owned-goal-id>
+```
+
+Session creation validates the owned goal, duration, timestamp order, and rejects unknown request fields. Listing returns only the current user's sessions; a goal filter remains owner-scoped. New session minutes are included in deterministic learning progress and therefore in later recommendations.
+
+The Learning Agent remains read-only. Phase 3C does not add agent write tools, scheduling, notifications, external research, resource ingestion, recommendation persistence, or production authentication.
 
 ## Planned architecture
 

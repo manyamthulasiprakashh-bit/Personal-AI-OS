@@ -1,16 +1,22 @@
+from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.agents.learning.agent import LearningAgent
-from app.api.dependencies import CurrentUser
+from app.api.dependencies import CurrentUser, get_current_user
 from app.api.routes.learning import get_learning_agent, get_learning_service
 from app.database.session import SessionLocal
 from app.main import app
 from app.models.user import User
 from app.providers.mock import MockProvider
-from app.schemas.learning import LearningAgentResponse, LearningGoalCreate, LearningProgress
+from app.schemas.learning import (
+    LearningAgentResponse,
+    LearningGoalCreate,
+    LearningProgress,
+    LearningSessionCreate,
+)
 from app.services.learning_service import LearningService
 
 
@@ -139,3 +145,198 @@ def test_cross_user_goal_id_returns_404(client, db):
         app.dependency_overrides.pop(get_learning_agent, None)
 
     assert response.status_code == 404
+
+
+def test_create_learning_session_returns_typed_response(client, db):
+    user = User(email="session-owner@example.com")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    goal = LearningService(db, user.id).create_goal(LearningGoalCreate(title="Python"))
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(user.id, user.email)
+    try:
+        response = client.post(
+            "/api/learning/sessions",
+            json={
+                "goal_id": goal.id,
+                "started_at": "2026-09-06T09:00:00Z",
+                "ended_at": "2026-09-06T09:45:00Z",
+                "duration_minutes": 45,
+                "notes": "Reviewed SQL joins",
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["goal_id"] == goal.id
+    assert body["user_id"] == user.id
+    assert body["duration_minutes"] == 45
+    assert body["notes"] == "Reviewed SQL joins"
+
+
+def test_create_learning_session_rejects_unknown_goal(client, db):
+    user = User(email="unknown-goal@example.com")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(user.id, user.email)
+    try:
+        response = client.post(
+            "/api/learning/sessions",
+            json={
+                "goal_id": "00000000-0000-0000-0000-000000000000",
+                "started_at": "2026-09-06T09:00:00Z",
+                "duration_minutes": 30,
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == 404
+
+
+def test_cross_user_goal_does_not_create_session(client, db):
+    owner = User(email="session-owner-a@example.com")
+    other = User(email="session-owner-b@example.com")
+    db.add_all([owner, other])
+    db.commit()
+    db.refresh(owner)
+    db.refresh(other)
+    goal = LearningService(db, owner.id).create_goal(LearningGoalCreate(title="Private"))
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(other.id, other.email)
+    try:
+        response = client.post(
+            "/api/learning/sessions",
+            json={
+                "goal_id": goal.id,
+                "started_at": "2026-09-06T09:00:00Z",
+                "duration_minutes": 30,
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == 404
+    assert LearningService(db, other.id).list_sessions() == []
+
+
+def test_session_listing_is_owner_scoped_and_goal_filter_works(client, db):
+    owner = User(email="list-owner@example.com")
+    other = User(email="list-other@example.com")
+    db.add_all([owner, other])
+    db.commit()
+    db.refresh(owner)
+    db.refresh(other)
+    owner_service = LearningService(db, owner.id)
+    other_service = LearningService(db, other.id)
+    first_goal = owner_service.create_goal(LearningGoalCreate(title="First"))
+    second_goal = owner_service.create_goal(LearningGoalCreate(title="Second"))
+    owner_service.create_session(
+        LearningSessionCreate(
+            goal_id=first_goal.id,
+            started_at=datetime(2026, 9, 6, 9, 0),
+            duration_minutes=30,
+        )
+    )
+    owner_service.create_session(
+        LearningSessionCreate(
+            goal_id=second_goal.id,
+            started_at=datetime(2026, 9, 6, 10, 0),
+            duration_minutes=45,
+        )
+    )
+    other_goal = other_service.create_goal(LearningGoalCreate(title="Other"))
+    other_service.create_session(
+        LearningSessionCreate(
+            goal_id=other_goal.id,
+            started_at=datetime(2026, 9, 6, 11, 0),
+            duration_minutes=60,
+        )
+    )
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(owner.id, owner.email)
+    try:
+        all_response = client.get("/api/learning/sessions")
+        filtered_response = client.get("/api/learning/sessions", params={"goal_id": first_goal.id})
+        cross_user_filter = client.get("/api/learning/sessions", params={"goal_id": other_goal.id})
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert all_response.status_code == 200
+    assert len(all_response.json()) == 2
+    assert filtered_response.status_code == 200
+    assert len(filtered_response.json()) == 1
+    assert filtered_response.json()[0]["goal_id"] == first_goal.id
+    assert cross_user_filter.status_code == 404
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"goal_id": "goal", "started_at": "2026-09-06T09:00:00Z", "duration_minutes": 0},
+        {
+            "goal_id": "goal",
+            "started_at": "2026-09-06T09:00:00Z",
+            "duration_minutes": 30,
+            "user_id": "other-user",
+        },
+        {
+            "goal_id": "goal",
+            "started_at": "2026-09-06T09:00:00Z",
+            "duration_minutes": 30,
+            "unexpected": True,
+        },
+    ],
+)
+def test_session_create_rejects_invalid_or_unknown_fields(client, payload):
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(
+        "validation-user", "validation@example.com"
+    )
+    try:
+        response = client.post("/api/learning/sessions", json=payload)
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == 422
+
+
+def test_session_create_rejects_reversed_timestamps():
+    with pytest.raises(ValueError, match="ended_at"):
+        LearningSessionCreate(
+            goal_id="goal",
+            started_at=datetime(2026, 9, 6, 10, 0),
+            ended_at=datetime(2026, 9, 6, 9, 0),
+            duration_minutes=30,
+        )
+
+
+def test_session_updates_progress_and_recommendation(client, db):
+    user = User(email="progress-owner@example.com")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    service = LearningService(db, user.id)
+    goal = service.create_goal(LearningGoalCreate(title="Progress"))
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(user.id, user.email)
+    try:
+        response = client.post(
+            "/api/learning/sessions",
+            json={
+                "goal_id": goal.id,
+                "started_at": "2026-09-06T09:00:00Z",
+                "duration_minutes": 50,
+            },
+        )
+        app.dependency_overrides[get_learning_agent] = lambda: LearningAgent(
+            service, MockProvider()
+        )
+        recommendation = client.post("/api/learning/agent/recommend", json={"goal_id": goal.id})
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_learning_agent, None)
+
+    assert response.status_code == 201
+    assert recommendation.status_code == 200
+    assert recommendation.json()["progress"]["total_sessions"] == 1
+    assert recommendation.json()["progress"]["total_minutes"] == 50

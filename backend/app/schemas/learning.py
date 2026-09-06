@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 LearningGoalStatus = Literal["active", "completed", "archived"]
 LearningPriority = Literal["low", "medium", "high"]
@@ -37,6 +37,12 @@ class LearningSessionCreate(BaseModel):
     ended_at: datetime | None = None
     duration_minutes: int = Field(..., ge=1, le=1440)
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def validate_time_order(self) -> "LearningSessionCreate":
+        if self.ended_at is not None and self.ended_at < self.started_at:
+            raise ValueError("ended_at must not be earlier than started_at")
+        return self
 
 
 class LearningSessionResponse(LearningSessionCreate):
