@@ -2,22 +2,24 @@
 
 Personal AI-OS is a portfolio-grade monorepo for orchestrating personal productivity, learning, job search, and stock market analysis with a multi-agent architecture.
 
-## Phase 1 status
+## Current status
 
-This repository currently contains the project foundation only, as required by the phased implementation plan:
+Phase 1 and Phase 2B are complete. The repository currently contains:
 
 - FastAPI backend foundation
 - SQLAlchemy + PostgreSQL configuration
-- Alembic migration scaffolding
-- Docker Compose services
+- Alembic migrations
 - Basic Next.js frontend shell
 - Health and dashboard endpoints
 - Logging, env configuration, and tests
+- RoutineAgent execution flow with deterministic daily progress
+- MockProvider structured daily reviews
+- `POST /api/routine/agent/review`
 
 ## Development roadmap
 
 1. Phase 1: Project foundation
-2. Phase 2: Daily Routine Agent MVP
+2. Phase 2: Daily Routine Agent MVP (Phase 2B complete)
 3. Phase 3: Learning Agent MVP
 4. Phase 4: Job Application Agent MVP
 5. Phase 5: Stock Market Agent MVP
@@ -48,7 +50,6 @@ personal-ai-os/
 ├── docs/
 ├── scripts/
 ├── .env.example
-├── docker-compose.yml
 ├── Makefile
 ├── README.md
 └── .gitignore
@@ -56,11 +57,21 @@ personal-ai-os/
 
 ## Local development
 
+The backend requires a local PostgreSQL server. The default configuration expects:
+
+- Database: `personal_ai_os`
+- User: `personal_ai_os`
+- Password: `personal_ai_os`
+- Host: `localhost`
+- Port: `5432`
+
+Copy the environment template and ensure PostgreSQL is running before applying the migration:
+
 ```bash
 cp .env.example .env
 make backend-install
-make frontend-install
-make up
+make alembic-upgrade
+make backend-run
 ```
 
 Then open:
@@ -68,13 +79,25 @@ Then open:
 - Backend API: http://localhost:8000/docs
 - Frontend: http://localhost:3000
 
+### Phase 2B smoke test
+
+The RoutineAgent review endpoint accepts a target date and returns deterministic progress with a structured MockProvider review:
+
+```bash
+curl -X POST http://localhost:8000/api/routine/agent/review \
+	-H "Content-Type: application/json" \
+	-d '{"date":"2026-09-06"}'
+```
+
+The response contains `progress` and a `review` with `summary`, `observations`, `recommendations`, and `tomorrow_priorities`.
+
 ## Commands
 
 ```bash
 make backend-test
 make backend-lint
 make alembic-upgrade
-make compose-up
+make backend-run
 ```
 
 ## Notes
