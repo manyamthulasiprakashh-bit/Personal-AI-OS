@@ -177,6 +177,24 @@ JOB_ANALYSIS_MAX_INPUT_CHARS=20000
 ```
 
 Provider failures, missing configuration, refusals, incomplete responses, malformed output, and oversized input return the existing safe `503 Service Unavailable` behavior. Tests use fake clients and do not require an API key or network access.
+
+### Phase 4D application tracking
+
+Track a user-controlled application for an owned, non-archived job opportunity:
+
+```bash
+curl -X POST http://localhost:8000/api/applications \
+	-H "Content-Type: application/json" \
+	-d '{"job_id":"<owned-job-id>","notes":"Submitted through the company portal","next_action":"Follow up"}'
+
+curl http://localhost:8000/api/applications
+curl http://localhost:8000/api/applications/<application-id>
+curl -X PATCH http://localhost:8000/api/applications/<application-id> \
+	-H "Content-Type: application/json" \
+	-d '{"status":"interviewing","next_action":"Prepare for screening"}'
+```
+
+Applications are owner-scoped and use the deterministic lifecycle `applied`, `interviewing`, `offer`, `rejected`, or `withdrawn`. One active application is allowed per user and job. This phase has no Application Agent, LLM calls, event history, resume handling, external integrations, or autonomous actions.
 ### Phase 4A manual job tracking
 
 Phase 4A stores user-provided job opportunities without external discovery or application automation. The URL is inert reference data, and `description_snapshot` is stored exactly as supplied by the user.

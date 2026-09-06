@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.session import Base
 
 if TYPE_CHECKING:
+    from app.models.application import Application
     from app.models.job import JobOpportunity
     from app.models.learning import LearningGoal, LearningResource, LearningSession
     from app.models.routine import Task
@@ -40,3 +41,4 @@ class User(Base):
     learning_sessions: Mapped[list["LearningSession"]] = relationship(back_populates="user")
     learning_resources: Mapped[list["LearningResource"]] = relationship(back_populates="user")
     job_opportunities: Mapped[list["JobOpportunity"]] = relationship(back_populates="user")
+    applications: Mapped[list["Application"]] = relationship(back_populates="user")

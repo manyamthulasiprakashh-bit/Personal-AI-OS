@@ -1,3 +1,4 @@
+from app.models.application import Application
 from app.models.job import JobOpportunity
 from app.models.learning import LearningGoal, LearningResource, LearningSession
 from app.models.routine import DailyActivity, DailyReview, Habit, HabitLog, Task
@@ -14,4 +15,5 @@ __all__ = [
     "LearningSession",
     "LearningResource",
     "JobOpportunity",
+    "Application",
 ]

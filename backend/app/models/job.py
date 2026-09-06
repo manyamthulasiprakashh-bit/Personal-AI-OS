@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.session import Base
 
 if TYPE_CHECKING:
+    from app.models.application import Application
     from app.models.user import User
 
 
@@ -45,3 +46,4 @@ class JobOpportunity(Base):
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped[User] = relationship("User", back_populates="job_opportunities")
+    applications: Mapped[list["Application"]] = relationship(back_populates="job")

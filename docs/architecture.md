@@ -184,7 +184,30 @@ JOB_PROVIDER=llm   -> LLMJobProvider
 
 `OPENAI_API_KEY` is required only for explicit LLM mode. Missing configuration, connection failures, timeouts, authentication/rate-limit/status failures, refusals, incomplete responses, malformed output, and oversized input are converted to the existing provider failure path and exposed as `503 Service Unavailable`. No raw prompts, job text, provider responses, keys, or tokens are logged.
 
-Phase 4C still excludes job discovery, scraping, crawling, URL fetching, applications, resumes, interviews, scheduling, notifications, email, employer contact, model tools, database migrations, persistence of analysis, and autonomous writes. No database schema changes are required.
+Phase 4C still excludes job discovery, scraping, crawling, URL fetching, application tracking, resumes, interviews, scheduling, notifications, email, employer contact, model tools, database migrations, persistence of analysis, and autonomous writes. No database schema changes are required.
+
+## Local Phase 4D flow
+
+Application Tracking is a deterministic, owner-scoped workflow separate from the JobOpportunity lifecycle:
+
+```text
+API -> current-user dependency -> ApplicationService(user_id)
+-> owner-scoped ApplicationRepository -> Application persistence/query
+-> typed response
+```
+
+The endpoints are:
+
+```text
+POST  /api/applications
+GET   /api/applications
+GET   /api/applications/{application_id}
+PATCH /api/applications/{application_id}
+```
+
+An application belongs to one owned job opportunity and cannot be created for an archived job. The client cannot provide `user_id` or change `job_id`. Active duplicate applications for the same user and job are rejected. The application lifecycle is `applied -> interviewing -> offer`, with `rejected` and `withdrawn` as terminal outcomes; service-level validation enforces transitions. Existing applications remain viewable after their job is archived.
+
+Phase 4D has no Application Agent, LLM calls, application event history, resume handling, email, external integrations, browser automation, or autonomous actions.
 ## Planned architecture
 
 - Orchestrator coordinates agent execution and approval requests.
