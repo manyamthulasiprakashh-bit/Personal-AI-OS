@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from app.agents.routine.agent import RoutineAgent
 from app.api.routes.routine import get_routine_agent
 from app.main import app
+from app.providers.mock import MockProvider
 
 
 class RecordingProvider:
@@ -16,6 +17,28 @@ class RecordingProvider:
         self.progress = progress
         self.target_date = target_date
         return {"summary": "mock review", "productivity_score": progress["productivity_score"]}
+
+
+def test_mock_provider_returns_structured_review():
+    progress = {
+        "total_tasks": 3,
+        "completed_tasks": 2,
+        "completion_percentage": 66.7,
+        "actual_minutes": 90,
+        "productivity_score": 66,
+    }
+
+    review = MockProvider().generate_daily_review(progress, target_date=date(2026, 9, 6))
+
+    assert set(review) == {
+        "summary",
+        "observations",
+        "recommendations",
+        "tomorrow_priorities",
+    }
+    assert isinstance(review["observations"], list)
+    assert isinstance(review["recommendations"], list)
+    assert isinstance(review["tomorrow_priorities"], list)
 
 
 def test_review_day_uses_daily_progress_tool(monkeypatch):

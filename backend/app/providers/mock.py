@@ -11,13 +11,13 @@ class MockProvider(BaseProvider):
         self, progress: dict[str, Any], *, target_date: date
     ) -> dict[str, Any]:
         return {
-            "date": target_date,
             "summary": (
                 f"{progress['completed_tasks']} of {progress['total_tasks']} tasks completed. "
                 f"Completion rate was {progress['completion_percentage']}%."
             ),
-            "recommendations": (
+            "observations": [f"Actual work time was {progress['actual_minutes']} minutes."],
+            "recommendations": [
                 "Review remaining work and schedule the next highest-priority task first."
-            ),
-            "productivity_score": progress["productivity_score"],
+            ],
+            "tomorrow_priorities": ["Plan the next highest-priority task before starting the day."],
         }
