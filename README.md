@@ -208,6 +208,18 @@ curl http://localhost:8000/api/stocks/AAPL
 `STOCK_PROVIDER="mock"` is the safe default and returns deterministic test data. Set `STOCK_PROVIDER="alphavantage"` with `ALPHAVANTAGE_API_KEY` to use the official Alpha Vantage `GLOBAL_QUOTE` endpoint. `ALPHAVANTAGE_API_BASE_URL` is configuration-controlled and `STOCK_TIMEOUT_SECONDS` bounds the request. Alpha Vantage's default quote entitlement is end-of-day; the response exposes this as `market_data_status` rather than claiming realtime data.
 
 The endpoint is informational only. Phase 5 has no database tables or migrations, watchlists, historical persistence, LLM analysis, Stock Agent, brokerage integration, trading, recommendations, or portfolio actions.
+
+### Phase 6 deterministic orchestrator
+
+The orchestrator accepts one high-level request and dispatches exactly one registered, read-only capability:
+
+```bash
+curl -X POST http://localhost:8000/api/orchestrator/run \
+	-H "Content-Type: application/json" \
+	-d '{"message":"What is the current price of AAPL?"}'
+```
+
+Supported capabilities are `learning.recommend`, `job.analyze`, and `stock.quote`. Routing is deterministic and uses a static registry; no LLM planner, arbitrary tools, SQL, URLs, filesystem access, writes, agent-to-agent calls, or workflow persistence are available. The current-user dependency and existing downstream ownership checks remain authoritative. Routine is excluded because its current data is global and its agent includes write-capable tools. Application Tracking is excluded because its operations mutate state.
 ### Phase 4A manual job tracking
 
 Phase 4A stores user-provided job opportunities without external discovery or application automation. The URL is inert reference data, and `description_snapshot` is stored exactly as supplied by the user.

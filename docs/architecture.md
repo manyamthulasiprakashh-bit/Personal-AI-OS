@@ -227,6 +227,22 @@ STOCK_PROVIDER=alphavantage -> AlphaVantageStockProvider
 The mock provider is the default and makes no network calls. The Alpha Vantage provider uses the configured official REST base URL, API key, `GLOBAL_QUOTE`, and an explicit timeout. Symbols are normalized and validated before provider invocation. Provider errors are sanitized into `404` or `503` responses; API keys, provider URLs, raw responses, and exception details are never returned.
 
 The response is informational only and includes `market_data_status`. Alpha Vantage's default quote behavior is represented as `end_of_day`; the implementation does not claim realtime data. Phase 5 adds no SQLAlchemy model, repository, migration, database read/write, LLM, Stock Agent, tools, brokerage integration, trading, watchlist, or historical persistence.
+
+## Local Phase 6 flow
+
+Phase 6 adds a request-scoped, deterministic coordinator:
+
+```text
+POST /api/orchestrator/run -> CurrentUser -> OrchestratorService
+	-> static CapabilityRegistry -> read-only ExecutionPolicy
+	-> one approved capability -> validated typed response
+```
+
+The registry exposes only `learning.recommend`, `job.analyze`, and `stock.quote`. The orchestrator calls the existing LearningAgent, JobAnalysisAgent, or StockService; it does not duplicate domain logic or perform direct database queries. Provider selection remains inside existing provider factories.
+
+Each request executes at most one capability with depth zero. Unknown, ambiguous, multi-action, or denied requests return validation errors. Existing service and repository ownership checks remain authoritative, and the request cannot provide `user_id`, provider names, tools, handlers, URLs, SQL, or filesystem operations.
+
+The Phase 6 MVP is intentionally not an LLM planner. It has no database persistence, migrations, agent-to-agent calls, application writes, Routine exposure, trading, brokerage, notifications, browser automation, or arbitrary execution. Routine is excluded because its current records are global and its agent exposes write-capable tools; Application Tracking is excluded because it mutates state.
 ## Planned architecture
 
 - Orchestrator coordinates agent execution and approval requests.
