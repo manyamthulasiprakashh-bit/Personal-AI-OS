@@ -5,6 +5,9 @@ import os
 import pytest
 from sqlalchemy import create_engine
 
+from app.agentic.planner import RuleBasedPlanner
+from app.providers.factory import get_agent_planner_provider
+from app.main import app
 from app.database.session import Base
 
 
@@ -19,3 +22,10 @@ def reset_test_db() -> None:
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def deterministic_agent_planner() -> None:
+    app.dependency_overrides[get_agent_planner_provider] = RuleBasedPlanner
+    yield
+    app.dependency_overrides.pop(get_agent_planner_provider, None)

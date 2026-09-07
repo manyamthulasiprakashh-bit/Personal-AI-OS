@@ -15,6 +15,8 @@ if TYPE_CHECKING:
     from app.models.job import JobOpportunity
     from app.models.learning import LearningGoal, LearningResource, LearningSession
     from app.models.routine import Task
+    from app.models.auth import AuthSession, UserIdentity
+    from app.models.agent_run import AgentRun
 
 
 class User(Base):
@@ -41,4 +43,7 @@ class User(Base):
     learning_sessions: Mapped[list["LearningSession"]] = relationship(back_populates="user")
     learning_resources: Mapped[list["LearningResource"]] = relationship(back_populates="user")
     job_opportunities: Mapped[list["JobOpportunity"]] = relationship(back_populates="user")
+    identities: Mapped[list["UserIdentity"]] = relationship(back_populates="user")
+    auth_sessions: Mapped[list["AuthSession"]] = relationship(back_populates="user")
+    agent_runs: Mapped[list["AgentRun"]] = relationship(back_populates="user")
     applications: Mapped[list["Application"]] = relationship(back_populates="user")

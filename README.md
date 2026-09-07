@@ -239,6 +239,30 @@ curl -X POST http://localhost:8000/api/jobs/<job-id>/archive
 
 All job operations are owner-scoped through the configured development user. Phase 4A has no JobAgent, applications, resume handling, external network access, or real LLM provider.
 
+### Phase 9 local agentic planner
+
+The agentic runtime accepts a user goal, requests one structured decision from
+the configured `PlannerProvider`, validates it, executes an approved capability,
+normalizes the observation, and asks the planner again. The planner never
+receives database sessions, repositories, secrets, or arbitrary network access.
+
+OpenAI remains an optional cloud provider. For local verification, install
+Ollama separately, confirm a model is installed with `ollama list`, and set the
+root `.env` file to the installed model:
+
+```text
+AGENT_PLANNER_PROVIDER="local"
+AGENT_PLANNER_MODEL="<installed-ollama-model>"
+AGENT_PLANNER_LOCAL_BASE_URL="http://localhost:11434"
+AGENT_PLANNER_LOCAL_TIMEOUT_SECONDS=30
+```
+
+The local provider uses only Ollama's localhost `/api/chat` endpoint and
+validates the returned JSON before the runtime can execute anything. It is not
+the default and fails clearly if Ollama or the selected model is unavailable.
+The existing `AGENT_PLANNER_PROVIDER="llm"` setting continues to use the
+OpenAI planner and its existing environment configuration.
+
 ## Commands
 
 ```bash

@@ -1,8 +1,12 @@
 from fastapi import FastAPI
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.health import router as health_router
 from app.api.routes.application import router as application_router
+from app.api.routes.agentic import router as agentic_router
+from app.api.routes.auth import router as auth_router
 from app.api.routes.job import router as job_router
 from app.api.routes.learning import router as learning_router
 from app.api.routes.orchestrator import router as orchestrator_router
@@ -30,13 +34,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def csrf_protection(request: Request, call_next):
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.cookies.get(
+        settings.auth_session_cookie_name
+    ):
+        csrf_cookie = request.cookies.get("personal_ai_os_csrf")
+        csrf_header = request.headers.get("x-csrf-token")
+        if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
+            return JSONResponse(status_code=403, content={"detail": "CSRF validation failed"})
+    return await call_next(request)
+
+
 app.include_router(health_router)
+app.include_router(auth_router)
 app.include_router(job_router)
 app.include_router(application_router)
 app.include_router(learning_router)
 app.include_router(routine_router)
 app.include_router(stock_router)
 app.include_router(orchestrator_router)
+app.include_router(agentic_router)
 
 
 @app.get("/")
