@@ -1,11 +1,28 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, status
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
+from app.database.session import get_db
 
 router = APIRouter(prefix="/api", tags=["health"])
 
 
 @router.get("/health")
-async def health_check() -> dict[str, str]:
-    return {"status": "ok", "service": "personal-ai-os-backend"}
+def health_check(db: Session = Depends(get_db)) -> dict[str, str]:
+    try:
+        db.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "status": "degraded",
+                "service": "personal-ai-os-backend",
+                "database": "unavailable",
+            },
+        )
+    return {"status": "ok", "service": "personal-ai-os-backend", "database": "ok"}
 
 
 @router.get("/dashboard")

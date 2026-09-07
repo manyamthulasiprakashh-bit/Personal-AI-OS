@@ -18,6 +18,7 @@ from app.utils.logging import configure_logging
 
 configure_logging()
 settings = get_settings()
+settings.validate_production_settings()
 init_db()
 
 app = FastAPI(

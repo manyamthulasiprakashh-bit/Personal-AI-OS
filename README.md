@@ -263,6 +263,37 @@ the default and fails clearly if Ollama or the selected model is unavailable.
 The existing `AGENT_PLANNER_PROVIDER="llm"` setting continues to use the
 OpenAI planner and its existing environment configuration.
 
+### Phase 10 production deployment preparation
+
+The intended deployment topology is Vercel for the Next.js frontend, Render
+for the FastAPI backend, and managed PostgreSQL. Production must provide
+`ENVIRONMENT="production"`, `AUTH_MODE="oidc"`, an HTTPS Auth0 callback and
+frontend redirect, a random `SECRET_KEY`, an exact HTTPS
+`BACKEND_CORS_ORIGINS` JSON array, and `DATABASE_URL` for the managed database.
+For a Vercel frontend calling a Render backend, use
+`AUTH_COOKIE_SAMESITE="none"` with HTTPS and keep CSRF protection enabled.
+
+Render backend commands:
+
+```text
+Build: pip install -r requirements.txt
+Pre-deploy: alembic upgrade head
+Start: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+Health check: /api/health
+```
+
+Set the Vercel environment variable `NEXT_PUBLIC_API_URL` to the deployed
+Render backend URL. Do not deploy Ollama to Render; use the hosted planner
+provider in production:
+
+```text
+AGENT_PLANNER_PROVIDER="llm"
+AGENT_PLANNER_MODEL="<hosted-model>"
+OPENAI_API_KEY="<secret-managed-by-render>"
+```
+
+Never place production credentials in this repository or in `.env.example`.
+
 ## Commands
 
 ```bash

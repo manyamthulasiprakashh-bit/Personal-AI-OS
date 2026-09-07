@@ -16,6 +16,10 @@ def _cookie_secure() -> bool:
     return get_settings().environment.lower() == "production"
 
 
+def _cookie_samesite() -> str:
+    return get_settings().auth_cookie_samesite
+
+
 @router.get("/login")
 def login(db: Session = Depends(get_db)):
     try:
@@ -53,7 +57,7 @@ def callback(
         max_age=get_settings().auth_session_ttl_seconds,
         httponly=True,
         secure=_cookie_secure(),
-        samesite="lax",
+        samesite=_cookie_samesite(),
         path="/",
     )
     csrf_token = __import__("secrets").token_urlsafe(32)
@@ -62,7 +66,7 @@ def callback(
         csrf_token,
         max_age=get_settings().auth_session_ttl_seconds,
         secure=_cookie_secure(),
-        samesite="lax",
+        samesite=_cookie_samesite(),
         path="/",
     )
     return response
