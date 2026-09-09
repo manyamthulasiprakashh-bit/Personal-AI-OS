@@ -1,7 +1,7 @@
 [project]
 name = "personal-ai-os-backend"
 version = "0.1.0"
-description = "Personal AI-OS backend"
+description = "Watari backend"
 requires-python = ">=3.12"
 
 [tool.pytest.ini_options]

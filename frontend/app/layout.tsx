@@ -2,7 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Personal AI-OS",
+  title: "Watari",
   description: "Personal AI Operating System dashboard",
 };
 

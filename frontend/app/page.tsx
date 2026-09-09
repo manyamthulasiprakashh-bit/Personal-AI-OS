@@ -20,7 +20,7 @@ export default function HomePage() {
       <div className="mx-auto max-w-7xl">
         <header className="mb-8 flex items-center justify-between rounded-2xl border border-slate-700 bg-slate-900/60 p-6 shadow-xl">
           <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-sky-400">Personal AI-OS</p>
+            <p className="text-sm uppercase tracking-[0.2em] text-sky-400">Watari</p>
             <h1 className="mt-2 text-3xl font-bold text-white">Dashboard</h1>
           </div>
           <div className="flex items-center gap-3">

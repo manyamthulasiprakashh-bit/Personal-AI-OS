@@ -1,6 +1,6 @@
-# Personal AI-OS
+# Watari
 
-Personal AI-OS is a portfolio-grade monorepo for orchestrating personal productivity, learning, job search, and stock market analysis with a multi-agent architecture.
+Watari is a portfolio-grade monorepo for orchestrating personal productivity, learning, job search, and stock market analysis with a multi-agent architecture.
 
 ## Current status
 

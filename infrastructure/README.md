@@ -1,6 +1,6 @@
 # Infrastructure
 
-This directory is reserved for deployment, infrastructure-as-code, and environment configuration for the Personal AI-OS project.
+This directory is reserved for deployment, infrastructure-as-code, and environment configuration for the Watari project.
 
 Planned contents:
 

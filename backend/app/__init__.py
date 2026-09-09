@@ -1,1 +1,1 @@
-"""Backend package for Personal AI-OS."""
+"""Backend package for Watari."""

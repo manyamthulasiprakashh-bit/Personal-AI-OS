@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    project_name: str = Field(default="Personal AI-OS")
+    project_name: str = Field(default="Watari")
     environment: str = Field(default="development")
     api_v1_str: str = Field(default="/api")
     backend_cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])

@@ -1,5 +1,5 @@
 ROUTINE_AGENT_PROMPT = """
-You are the Daily Routine Agent for Personal AI-OS.
+You are the Daily Routine Agent for Watari.
 
 Responsibilities:
 - create and update tasks
