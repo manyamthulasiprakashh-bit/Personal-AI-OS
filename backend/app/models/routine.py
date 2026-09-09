@@ -4,7 +4,17 @@ from datetime import date, datetime, time
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -17,7 +27,7 @@ if TYPE_CHECKING:
 class Task(Base):
     __tablename__ = "tasks"
     __table_args__ = (
-        UniqueConstraint("title", "planned_date", name="uq_task_title_date"),
+        UniqueConstraint("user_id", "title", "planned_date", name="uq_task_user_title_date"),
         {"schema": None},
     )
 
@@ -45,11 +55,11 @@ class Task(Base):
         nullable=False,
     )
 
-    user_id: Mapped[str | None] = mapped_column(
-        UUID(as_uuid=False), ForeignKey("users.id"), nullable=True
+    user_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("users.id"), nullable=False, index=True
     )
 
-    user: Mapped[User | None] = relationship("User", back_populates="tasks")
+    user: Mapped[User] = relationship("User", back_populates="tasks")
     activities: Mapped[list["DailyActivity"]] = relationship(back_populates="task")
 
 
@@ -73,9 +83,10 @@ class Habit(Base):
         nullable=False,
     )
 
-    user_id: Mapped[str | None] = mapped_column(
-        UUID(as_uuid=False), ForeignKey("users.id"), nullable=True
+    user_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("users.id"), nullable=False, index=True
     )
+    user: Mapped[User] = relationship("User", back_populates="habits")
     logs: Mapped[list["HabitLog"]] = relationship(back_populates="habit")
 
 
@@ -100,9 +111,13 @@ class HabitLog(Base):
 
 class DailyActivity(Base):
     __tablename__ = "daily_activities"
+    __table_args__ = (Index("ix_daily_activities_user_id", "user_id"),)
 
     id: Mapped[str] = mapped_column(
         UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
+    )
+    user_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("users.id"), nullable=False
     )
     task_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=False), ForeignKey("tasks.id"), nullable=True
@@ -116,16 +131,24 @@ class DailyActivity(Base):
         DateTime(timezone=True), default=datetime.utcnow, nullable=False
     )
 
+    user: Mapped[User] = relationship("User", back_populates="daily_activities")
     task: Mapped[Task | None] = relationship(back_populates="activities")
 
 
 class DailyReview(Base):
     __tablename__ = "daily_reviews"
+    __table_args__ = (
+        UniqueConstraint("user_id", "date", name="uq_daily_reviews_user_date"),
+        Index("ix_daily_reviews_user_id", "user_id"),
+    )
 
     id: Mapped[str] = mapped_column(
         UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
     )
-    date: Mapped[date] = mapped_column(Date, nullable=False, unique=True)
+    user_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("users.id"), nullable=False
+    )
+    date: Mapped[date] = mapped_column(Date, nullable=False)
     planned_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     completed_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     completed_tasks: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -136,3 +159,5 @@ class DailyReview(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, nullable=False
     )
+
+    user: Mapped[User] = relationship("User", back_populates="daily_reviews")

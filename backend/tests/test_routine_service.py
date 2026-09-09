@@ -3,6 +3,9 @@ from datetime import date
 from app.services.routine_service import RoutineService
 
 
+TEST_USER_ID = "00000000-0000-0000-0000-000000000001"
+
+
 class DummyDB:
     def __init__(self):
         self.items = []
@@ -26,7 +29,7 @@ class DummyDB:
 
 
 def test_calculate_daily_progress_uses_task_status() -> None:
-    service = RoutineService(DummyDB())
+    service = RoutineService(DummyDB(), TEST_USER_ID)
     tasks = [
         type(
             "Task",

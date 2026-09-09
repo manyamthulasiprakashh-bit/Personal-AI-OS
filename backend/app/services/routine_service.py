@@ -11,9 +11,10 @@ from app.repositories.routine import RoutineRepository
 
 
 class RoutineService:
-    def __init__(self, db: Session):
-        self.repository = RoutineRepository(db)
+    def __init__(self, db: Session, user_id: str):
+        self.repository = RoutineRepository(db, user_id)
         self.db = db
+        self.user_id = user_id
 
     def create_task(self, payload: dict[str, Any]) -> Task:
         if payload.get("title") is None or not str(payload["title"]).strip():
@@ -76,7 +77,7 @@ class RoutineService:
         return self.repository.list_habits()
 
     def log_habit(self, habit_id: str, payload: dict[str, Any]) -> HabitLog:
-        habit = self.db.get(Habit, habit_id)
+        habit = self.repository.get_habit(habit_id)
         if habit is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="habit not found")
         log_payload = {"habit_id": habit_id, **payload}
@@ -92,6 +93,9 @@ class RoutineService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="duration_minutes must be greater than zero",
             )
+        task_id = payload.get("task_id")
+        if task_id is not None and self.repository.get_task(task_id) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="task not found")
         return self.repository.log_activity(payload)
 
     def list_activities(self, planned_date: date | None = None) -> list[DailyActivity]:
@@ -130,12 +134,7 @@ class RoutineService:
         habits = self.repository.list_habits()
         habit_completion: dict[str, bool] = {}
         for habit in habits:
-            logs = [
-                entry
-                for entry in self.db.query(HabitLog)
-                .filter(HabitLog.habit_id == habit.id, HabitLog.date == target_date)
-                .all()
-            ]
+            logs = self.repository.list_habit_logs_for_date(habit.id, target_date)
             habit_completion[habit.name] = any(log.completed for log in logs) if logs else False
 
         productivity_score = max(

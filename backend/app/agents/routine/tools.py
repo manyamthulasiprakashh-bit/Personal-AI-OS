@@ -3,38 +3,25 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Callable
 
-from app.database.session import SessionLocal
 from app.services.routine_service import RoutineService
 
 
-def _get_service() -> RoutineService:
-    db = SessionLocal()
-    try:
-        return RoutineService(db)
-    finally:
-        db.close()
-
-
-def create_task(payload: dict[str, Any]) -> dict[str, Any]:
-    service = _get_service()
+def create_task(service: RoutineService, payload: dict[str, Any]) -> dict[str, Any]:
     task = service.create_task(payload)
     return {"id": task.id, "title": task.title, "status": task.status}
 
 
-def update_task(task_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-    service = _get_service()
+def update_task(service: RoutineService, task_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     task = service.update_task(task_id, payload)
     return {"id": task.id, "title": task.title, "status": task.status}
 
 
-def complete_task(task_id: str) -> dict[str, Any]:
-    service = _get_service()
+def complete_task(service: RoutineService, task_id: str) -> dict[str, Any]:
     task = service.complete_task(task_id)
     return {"id": task.id, "status": task.status}
 
 
-def log_activity(payload: dict[str, Any]) -> dict[str, Any]:
-    service = _get_service()
+def log_activity(service: RoutineService, payload: dict[str, Any]) -> dict[str, Any]:
     activity = service.log_activity(payload)
     return {
         "id": activity.id,
@@ -43,8 +30,7 @@ def log_activity(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def get_daily_plan(target_date: date) -> dict[str, Any]:
-    service = _get_service()
+def get_daily_plan(service: RoutineService, target_date: date) -> dict[str, Any]:
     plan = service.get_daily_plan(target_date)
     return {
         "date": plan["date"].isoformat(),
@@ -52,13 +38,11 @@ def get_daily_plan(target_date: date) -> dict[str, Any]:
     }
 
 
-def get_daily_progress(target_date: date) -> dict[str, Any]:
-    service = _get_service()
+def get_daily_progress(service: RoutineService, target_date: date) -> dict[str, Any]:
     return service.calculate_daily_progress(target_date)
 
 
-def generate_daily_review(target_date: date) -> dict[str, Any]:
-    service = _get_service()
+def generate_daily_review(service: RoutineService, target_date: date) -> dict[str, Any]:
     review = service.generate_daily_review(target_date)
     return {
         "id": review.id,

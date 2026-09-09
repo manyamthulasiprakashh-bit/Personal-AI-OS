@@ -8,6 +8,30 @@ from app.main import app
 from app.providers.mock import MockProvider
 
 
+TEST_USER_ID = "00000000-0000-0000-0000-000000000001"
+
+
+class _StubService:
+    """Minimal stand-in for RoutineService in agent-only tests."""
+
+    def __init__(self):
+        self.user_id = TEST_USER_ID
+
+    def calculate_daily_progress(self, target_date):
+        return {
+            "total_tasks": 0,
+            "completed_tasks": 0,
+            "pending_tasks": 0,
+            "skipped_tasks": 0,
+            "completion_percentage": 0.0,
+            "planned_minutes": 0,
+            "actual_minutes": 0,
+            "category_breakdown": {},
+            "habit_completion": {},
+            "productivity_score": 0,
+        }
+
+
 class RecordingProvider:
     def __init__(self):
         self.progress = None
@@ -46,7 +70,7 @@ def test_review_day_uses_daily_progress_tool(monkeypatch):
     expected_progress = {"completed_tasks": 1, "productivity_score": 100}
     calls = []
 
-    def fake_progress(target_date):
+    def fake_progress(service, target_date):
         calls.append(target_date)
         return expected_progress
 
@@ -54,7 +78,7 @@ def test_review_day_uses_daily_progress_tool(monkeypatch):
         "app.agents.routine.agent.ALLOWED_TOOLS",
         {"get_daily_progress": fake_progress},
     )
-    agent = RoutineAgent(provider=provider)
+    agent = RoutineAgent(service=_StubService(), provider=provider)
 
     result = agent.review_day(date(2026, 9, 6))
 
@@ -64,7 +88,7 @@ def test_review_day_uses_daily_progress_tool(monkeypatch):
 
 
 def test_review_day_enforces_tool_allowlist():
-    agent = RoutineAgent(provider=RecordingProvider())
+    agent = RoutineAgent(service=_StubService(), provider=RecordingProvider())
 
     try:
         agent.execute("not_allowed", date.today())
@@ -77,7 +101,7 @@ def test_review_day_enforces_tool_allowlist():
 def test_agent_review_endpoint_returns_progress_and_review():
     client = TestClient(app)
     provider = RecordingProvider()
-    agent = RoutineAgent(provider=provider)
+    agent = RoutineAgent(service=_StubService(), provider=provider)
     app.dependency_overrides[get_routine_agent] = lambda: agent
 
     try:
@@ -123,3 +147,88 @@ def test_agent_review_endpoint_uses_agent_review_day():
     assert response.status_code == 200
     assert called == [date(2026, 9, 6)]
     assert response.json()["review"]["summary"] == "stub"
+
+
+# ---------- Phase 8C ownership tests ----------
+
+
+def test_agent_review_sees_only_own_users_data():
+    """RoutineAgent reviewing as User A must not see User B's tasks."""
+    from app.database.session import SessionLocal
+    from app.models.user import User
+    from app.services.routine_service import RoutineService
+
+    session = SessionLocal()
+    try:
+        user_a = User(email=f"agent-a-{date.today()}@example.com")
+        user_b = User(email=f"agent-b-{date.today()}@example.com")
+        session.add_all([user_a, user_b])
+        session.commit()
+        session.refresh(user_a)
+        session.refresh(user_b)
+
+        service_a = RoutineService(session, user_a.id)
+        service_b = RoutineService(session, user_b.id)
+
+        service_a.create_task({"title": "A's task", "planned_date": date.today()})
+        service_b.create_task({"title": "B's task", "planned_date": date.today()})
+
+        agent_a = RoutineAgent(service=service_a, provider=RecordingProvider())
+        result_a = agent_a.review_day(date.today())
+
+        # Agent A's progress reflects only A's task
+        assert result_a["progress"]["total_tasks"] == 1
+
+        # Agent B sees only B's task
+        agent_b = RoutineAgent(service=service_b, provider=RecordingProvider())
+        result_b = agent_b.review_day(date.today())
+        assert result_b["progress"]["total_tasks"] == 1
+
+        # Cleanup tasks so uniqueness constraint on (user_id, title, planned_date)
+        # doesn't collide with other tests running on the same date.
+        for task in service_a.repository.list_tasks():
+            session.delete(task)
+        for task in service_b.repository.list_tasks():
+            session.delete(task)
+        session.commit()
+    finally:
+        session.close()
+
+
+def test_agent_cannot_mutate_other_users_task():
+    """RoutineAgent scoped to User B gets 404 when trying to complete User A's task."""
+    from fastapi import HTTPException
+    from app.database.session import SessionLocal
+    from app.models.user import User
+    from app.services.routine_service import RoutineService
+
+    session = SessionLocal()
+    try:
+        user_a = User(email=f"agent-mut-a-{date.today()}@example.com")
+        user_b = User(email=f"agent-mut-b-{date.today()}@example.com")
+        session.add_all([user_a, user_b])
+        session.commit()
+        session.refresh(user_a)
+        session.refresh(user_b)
+
+        service_a = RoutineService(session, user_a.id)
+        task = service_a.create_task({"title": "A's protected task", "planned_date": date.today()})
+
+        service_b = RoutineService(session, user_b.id)
+        agent_b = RoutineAgent(service=service_b, provider=RecordingProvider())
+
+        try:
+            agent_b.execute("complete_task", task.id)
+            raise AssertionError("agent B should not complete user A's task")
+        except HTTPException as error:
+            assert error.status_code == 404
+
+        # Verify the task is still pending
+        session.refresh(task)
+        assert task.status == "pending"
+
+        # Cleanup
+        session.delete(task)
+        session.commit()
+    finally:
+        session.close()

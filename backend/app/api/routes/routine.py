@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.agents.routine.agent import RoutineAgent
+from app.api.dependencies import CurrentUser, get_current_user
 from app.database.session import get_db
 from app.providers.factory import get_provider
 from app.schemas.routine import (
@@ -30,12 +31,16 @@ from app.services.routine_service import RoutineService
 router = APIRouter(prefix="/api", tags=["routine"])
 
 
-def get_routine_service(db: Session = Depends(get_db)) -> RoutineService:
-    return RoutineService(db)
+def get_routine_service(
+    db: Session = Depends(get_db), current_user: CurrentUser = Depends(get_current_user)
+) -> RoutineService:
+    return RoutineService(db, current_user.id)
 
 
-def get_routine_agent() -> RoutineAgent:
-    return RoutineAgent(provider=get_provider())
+def get_routine_agent(
+    service: RoutineService = Depends(get_routine_service),
+) -> RoutineAgent:
+    return RoutineAgent(service=service, provider=get_provider())
 
 
 @router.post("/tasks", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
