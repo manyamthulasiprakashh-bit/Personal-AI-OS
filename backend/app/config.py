@@ -75,7 +75,6 @@ class Settings(BaseSettings):
             "AUTH0_REDIRECT_URI": self.auth0_redirect_uri,
             "AUTH_FRONTEND_REDIRECT_URI": self.auth_frontend_redirect_uri,
             "SECRET_KEY": self.secret_key,
-            "AGENT_PLANNER_MODEL": self.agent_planner_model,
         }
         missing = [name for name, value in required.items() if not value.strip()]
         if missing:
@@ -92,10 +91,16 @@ class Settings(BaseSettings):
             "https://"
         ):
             raise ValueError("SameSite=None requires HTTPS")
-        if self.agent_planner_provider != "llm":
-            raise ValueError("production AGENT_PLANNER_PROVIDER must be llm")
-        if not self.openai_api_key.strip():
-            raise ValueError("production OPENAI_API_KEY is required for the hosted planner")
+        planner_provider = self.agent_planner_provider.strip().lower()
+        if planner_provider not in {"rule_based", "rule-based", "llm"}:
+            raise ValueError("production AGENT_PLANNER_PROVIDER must be rule_based or llm")
+        if planner_provider == "llm":
+            if not self.openai_api_key.strip():
+                raise ValueError("production OPENAI_API_KEY is required for the hosted planner")
+            if not self.agent_planner_model.strip():
+                raise ValueError(
+                    "production AGENT_PLANNER_MODEL is required for the hosted planner"
+                )
         if not self.backend_cors_origins:
             raise ValueError("production BACKEND_CORS_ORIGINS must contain an origin")
         if any(not origin.startswith("https://") for origin in self.backend_cors_origins):

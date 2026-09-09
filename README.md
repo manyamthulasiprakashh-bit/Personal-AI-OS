@@ -283,14 +283,28 @@ Health check: /api/health
 ```
 
 Set the Vercel environment variable `NEXT_PUBLIC_API_URL` to the deployed
-Render backend URL. Do not deploy Ollama to Render; use the hosted planner
-provider in production:
+Render backend URL. Do not deploy Ollama to Render.
+
+The no-cost production default is the deterministic rule-based planner, which
+requires no OpenAI API key or credits:
+
+```text
+AGENT_PLANNER_PROVIDER="rule_based"
+```
+
+The hosted `llm` planner remains available as an optional production setting.
+It requires both `OPENAI_API_KEY` and `AGENT_PLANNER_MODEL`; production
+rejects `llm` if either is missing:
 
 ```text
 AGENT_PLANNER_PROVIDER="llm"
 AGENT_PLANNER_MODEL="<hosted-model>"
 OPENAI_API_KEY="<secret-managed-by-render>"
 ```
+
+Production only accepts `AGENT_PLANNER_PROVIDER` values of `rule_based` or
+`llm`; `local` (Ollama) is rejected because Ollama must not be deployed to
+Render.
 
 Never place production credentials in this repository or in `.env.example`.
 
